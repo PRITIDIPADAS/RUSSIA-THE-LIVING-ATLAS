@@ -25,11 +25,15 @@ OpenStreetMap is the underlying source of the OpenFreeMap tiles that the optiona
 - Terms of Service: https://openfreemap.org/tos/
 - Privacy policy: https://openfreemap.org/privacy/
 - Style used by the optional loader: `https://tiles.openfreemap.org/styles/liberty`
-- OpenFreeMap project license: MIT; map data is from OpenStreetMap, with its ODbL obligations.
+- OpenFreeMap project license: MIT.
+- OpenMapTiles schema: the schema implementation code is BSD 3-Clause; design/cartography decisions are CC BY 4.0. See the [OpenMapTiles license](https://github.com/openmaptiles/openmaptiles/blob/master/LICENSE.md).
+- Map data is from OpenStreetMap, so its ODbL obligations remain separate and apply to the underlying data.
 
 OpenFreeMap says its public vector-tile service is free and does not require an API key. It also states that there is no uptime/service-level guarantee and the service may change. MapLibre normally displays the style's supplied attribution automatically. OpenFreeMap's recommended non-MapLibre attribution is:
 
 `OpenFreeMap © OpenMapTiles Data from OpenStreetMap`
+
+The OpenMapTiles attribution for a browsable map should make the project credit and OSM credit visible, for example: `© OpenMapTiles © OpenStreetMap contributors`.
 
 **Age / integration condition:** The OpenFreeMap Terms of Service updated 14 October 2026 state that a person integrating the public service into a website or application must be at least 18 years old and legally able to enter the agreement. The terms distinguish integrators from end users who simply view an embedded map. For that reason, the repository's HTML sets the live-map approval flag to false and the game defaults to its schematic locator view. An adult project maintainer must independently review the current terms and privacy policy before making any decision about the live integration. Do not attempt to bypass the age requirement.
 
