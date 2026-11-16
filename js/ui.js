@@ -18,7 +18,7 @@ var GAME_UI = (function () {
   function bootDependencies(){
     var p=Promise.resolve();
     if(typeof LOCS==='undefined')p=p.then(function(){return loadScript('css/js/data.js');});
-    return p.then(function(){return loadScript('js/art2.js').catch(function(){});});
+    return p.then(function(){return (typeof ART2!=='undefined'||window.ART2)?Promise.resolve():loadScript('js/art2.js').catch(function(){});});
   }
   function title(){
     var t=el('title'),c=el('tcard');if(!t||!c)return;t.classList.remove('hidden');
@@ -27,7 +27,7 @@ var GAME_UI = (function () {
     el('continueGame').onclick=function(){var s=GAME_ENGINE.load();if(s){GAME_ENGINE.scene(s.scene,s.x,s.y);t.classList.add('hidden');GAME_ENGINE.pause(false);updateHud();}};
     el('settings').onclick=settings;
   }
-  function settings(){var s=GAME_ENGINE.getState();show('<div class="kicker">SETTINGS</div><h2>Game settings</h2><p>Weather and sound settings are saved on this device.</p><label><input type="checkbox" id="weather" '+(s.settings.weather?'checked':'')+'> Live weather (when available)</label><br><label><input type="checkbox" id="sound" '+(s.settings.sound?'checked':'')+'> Sound effects</label><div class="actions"><button class="btn primary" id="settingsSave">Save settings</button><button class="btn" id="resetSave">Reset local save</button><button class="btn" id="settingsClose">Close</button></div>');
+  function settings(){var s=GAME_ENGINE.getState();show('<div class="kicker">SETTINGS</div><h2>Game settings</h2><p>Weather and sound settings are saved on this device.</p><label><input type="checkbox" id="weather" '+(s.settings.weather?'checked':'')+'> Live weather (when available)</label><br><label><input type="checkbox" id="sound" disabled> Sound effects (not implemented yet)</label><div class="actions"><button class="btn primary" id="settingsSave">Save settings</button><button class="btn" id="resetSave">Reset local save</button><button class="btn" id="settingsClose">Close</button></div>');
     el('settingsSave').onclick=function(){s.settings.weather=el('weather').checked;s.settings.sound=el('sound').checked;GAME_ENGINE.save();GAME_ENGINE.refreshWeather();close();};
     el('resetSave').onclick=function(){if(confirm('Delete this game save from this browser?')){localStorage.removeItem('russia-life-beyond-save-v1');GAME_ENGINE.newGame();close();toast('Local save reset.');}};
     el('settingsClose').onclick=close;
@@ -37,13 +37,13 @@ var GAME_UI = (function () {
     if(el('hud'))el('hud').classList.remove('hidden');
     el('hRegion').textContent=sc.region;el('hCity').textContent=sc.placeName;el('hScene').textContent=sc.name;
     var h=Math.floor(s.minutes/60),m=Math.floor(s.minutes%60);el('hTime').textContent=s.date+' · '+String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
-    var wx=GAME_ENGINE.getWeather?GAME_ENGINE.getWeather():{kind:'clear',temp:null};el('hWx').textContent=sc.inside?'Indoors':sc.biome+' · '+wx.kind+(wx.temp===null?'':' · '+Math.round(wx.temp)+'°C');
+    var wx=GAME_ENGINE.getWeather?GAME_ENGINE.getWeather():{kind:'clear',temp:null,source:'climate'};el('hWx').textContent=sc.inside?'Indoors':sc.biome+' · '+wx.kind+(wx.temp===null?'':' · '+Math.round(wx.temp)+'°C')+(wx.source==='Open-Meteo'?' · Open-Meteo':' · local climate');
     el('money').textContent='₽'+Math.round(s.money).toLocaleString('en-US');
     el('needs').innerHTML=['energy','hunger','thirst','hygiene','bladder','mood','social'].map(function(k){var v=Math.round(s.needs[k]),low=v<25?' low':v<50?' mid':'';return '<div class="need'+low+'">'+k+' '+v+'<div class="bar"><i style="width:'+v+'%"></i></div></div>';}).join('');
     var status=[];if(s.pet)status.push('Pet: '+s.pet.name);if(Object.keys(s.disc).length)status.push('Discoveries: '+Object.keys(s.disc).length);
     el('status').innerHTML=status.map(function(x){return '<span class="chip calm">'+safe(x)+'</span>';}).join('');
   }
-  function updateLoop(){if(started){updateHud();requestAnimationFrame(updateLoop);}}
+  function updateLoop(){if(started){updateHud();setTimeout(updateLoop,250);}}
   function menu(){show('<div class="kicker">PAUSED</div><h2>What next?</h2><p>Save is automatic on this device.</p><div class="actions"><button class="btn primary" id="resume">Resume</button><button class="btn" id="mapMenu">World map</button><button class="btn" id="journalMenu">Journal</button><button class="btn" id="bagMenu">Bag</button><button class="btn" id="settingsMenu">Settings</button><button class="btn" id="saveExit">Save</button></div>');
     GAME_ENGINE.pause(true);el('resume').onclick=function(){close();GAME_ENGINE.pause(false);};el('mapMenu').onclick=function(){close();openMap();};el('journalMenu').onclick=function(){close();openJournal();};el('bagMenu').onclick=function(){close();openBag();};el('settingsMenu').onclick=settings;el('saveExit').onclick=function(){GAME_ENGINE.save();close();toast('Game saved on this device.');};}
   function openMap(){close();GAME_TRAVEL.open();}
@@ -55,15 +55,15 @@ var GAME_UI = (function () {
   function init(){
     if(started)return;started=true;
     bootDependencies().catch(function(e){errorBox('Could not load optional game data: '+e);}).finally(function(){
-      GAME_ENGINE.start();GAME_TRAVEL.open.__ready=true;title();updateHud();updateLoop();bindTouch();});
+      GAME_ENGINE.start();title();updateHud();updateLoop();bindTouch();});
     document.addEventListener('click',function(e){var b=e.target.closest('[data-ui]');if(!b)return;var a=b.dataset.ui;if(a==='map')openMap();if(a==='journal')openJournal();if(a==='bag')openBag();if(a==='menu')menu();});
     if(window.matchMedia&&window.matchMedia('(pointer:coarse)').matches){el('touch').classList.remove('hidden');}
   }
   function bindTouch(){
     var stick=el('stick'),touchEl=el('touch'),active=null,origin={x:0,y:0};
     canvasTouch();
-    function canvasTouch(){var c=el('game');c.addEventListener('pointerdown',function(e){if(e.pointerType==='mouse')return;active=e.pointerId;origin={x:e.clientX,y:e.clientY};stick.style.display='block';stick.style.left=origin.x+'px';stick.style.top=origin.y+'px';});window.addEventListener('pointermove',function(e){if(active!==e.pointerId)return;var dx=e.clientX-origin.x,dy=e.clientY-origin.y,len=Math.hypot(dx,dy),max=40;if(len>max){dx=dx/len*max;dy=dy/len*max;}stick.querySelector('i').style.transform='translate('+dx+'px,'+dy+'px)';GAME_ENGINE.setTouch(dx/max,dy/max,false);});window.addEventListener('pointerup',function(e){if(active!==e.pointerId)return;active=null;stick.style.display='none';stick.querySelector('i').style.transform='';GAME_ENGINE.setTouch(0,0,false);});}
-    el('tRun').onpointerdown=function(){GAME_ENGINE.setTouch(0,0,true);};el('tRun').onpointerup=el('tRun').onpointerleave=function(){GAME_ENGINE.setTouch(0,0,false);};el('tUse').onclick=GAME_ENGINE.use;
+    function canvasTouch(){var c=el('game');c.addEventListener('pointerdown',function(e){if(e.pointerType==='mouse')return;active=e.pointerId;origin={x:e.clientX,y:e.clientY};stick.style.display='block';stick.style.left=origin.x+'px';stick.style.top=origin.y+'px';});window.addEventListener('pointermove',function(e){if(active!==e.pointerId)return;var dx=e.clientX-origin.x,dy=e.clientY-origin.y,len=Math.hypot(dx,dy),max=40;if(len>max){dx=dx/len*max;dy=dy/len*max;}stick.querySelector('i').style.transform='translate('+dx+'px,'+dy+'px)';GAME_ENGINE.setTouch(dx/max,dy/max,null);});window.addEventListener('pointerup',function(e){if(active!==e.pointerId)return;active=null;stick.style.display='none';stick.querySelector('i').style.transform='';GAME_ENGINE.setTouch(0,0,null);});}
+    el('tRun').onpointerdown=function(e){e.preventDefault();GAME_ENGINE.setTouch(null,null,true);};el('tRun').onpointerup=el('tRun').onpointerleave=function(){GAME_ENGINE.setTouch(null,null,false);};el('tUse').onclick=GAME_ENGINE.use;
   }
   function start(){init();}
   return {start:start,init:init,toast:toast,prompt:prompt,menu:menu,openMap:openMap,openJournal:openJournal,openBag:openBag,shop:shop,clothes:clothes,discovery:discovery,close:close};
