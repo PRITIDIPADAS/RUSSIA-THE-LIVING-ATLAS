@@ -41,8 +41,8 @@ var SCENE_CATALOG = (function () {
     kam_bay:['kam_beach','kam_pier','kam_tundra'],kam_beach:['kam_bay'],kam_pier:['kam_bay'],kam_tundra:['kam_bay']
   };
   var cache = {};
-  function tileRows(kind) {
-    var w=27,h=19, rows=[], base = ({home:'f',museum:'m',shop:'t',landmark:'#',station:'#'})[kind] || '.';
+  function tileRows(kind,pid) {
+    var w=27,h=19, rows=[], base = ({home:'f',museum:'m',shop:'t',landmark:'#',station:'#'})[kind] || '.',swimBeach=pid==='bkl'||pid==='soc';
     for(var y=0;y<h;y++){
       var row='';
       for(var x=0;x<w;x++){
@@ -51,8 +51,8 @@ var SCENE_CATALOG = (function () {
           if(y===h-1&&x===13)c='f';
         } else {
           if(y===9)c=kind==='street'||kind==='village'?'=':(kind==='coast'||kind==='beach'?'p':kind==='trail'?'d':'.');
-          if((kind==='coast'||kind==='beach')&&x>19){c='~';if(y>5&&y<14&&x>20)c='w';}
-          if(kind==='beach'&&x>18&&y>5&&y<14)c='w';
+          if((kind==='coast'||kind==='beach')&&x>19){c='~';if(swimBeach&&kind==='beach'&&y>5&&y<14&&x>20)c='w';}
+          if(kind==='beach'&&swimBeach&&x>18&&y>5&&y<14)c='w';
           if(kind==='trail'&&x>5&&x<22&&y===9)c='d';
           if(kind==='camp'&&x>19&&y>3)c='n';
           if(kind==='landmark'&&x>21)c='.';
@@ -72,7 +72,7 @@ var SCENE_CATALOG = (function () {
     var pid=d[1],p=places[pid]||fallback[pid],kind=d[3],biome=d[4],inside=['home','museum','shop','station'].indexOf(kind)>=0;
     var objects=[],interact=[];
     if(inside){
-      objects.push(obj('bld',3,2,{w:21,h:14,style:'stucco',floors:1,lit:100}));
+      /* Interior rooms use wall tiles and furniture, not an exterior building shell. */
       if(kind==='home'){
         objects.push(obj('bed',4,4,{action:'sleep',prompt:'E — Sleep in your bed'}),obj('fridge',20,4,{action:'fridge',prompt:'E — Open fridge'}),obj('stove',19,10,{action:'cook',prompt:'E — Cook'}),obj('shower',4,12,{action:'shower',prompt:'E — Shower'}),obj('toilet',8,12,{action:'restroom',prompt:'E — Use restroom'}),obj('wardrobe',13,3,{action:'wardrobe',prompt:'E — Change clothes'}),obj('table',10,8,{action:'eat',prompt:'E — Eat at the table'}),obj('chair',11,10));
       } else if(kind==='shop'){
@@ -102,7 +102,7 @@ var SCENE_CATALOG = (function () {
       if(pid==='elb'&&kind==='trail')objects.push(obj('tur',21,5,{species:'tur'}));
       if(pid==='kam'&&kind==='tundra')objects.push(obj('bear',23,4,{species:'bear'}));
       if(pid==='soc'&&kind==='beach')objects.push(obj('dolphin',23,6,{species:'dolphin'}));
-      if(kind==='beach')interact.push({x:18,y:10,action:'swim',prompt:'E — Swim in designated water'});
+      if(kind==='beach'&&(pid==='bkl'||pid==='soc'))interact.push({x:22,y:10,action:'swim',prompt:'E — Swim in designated water'});
       if(kind==='trail')interact.push({x:14,y:9,action:'hike',prompt:'E — Hike the marked trail'});
       if(kind==='park')interact.push({x:17,y:12,action:'adopt',prompt:'E — Visit the animal shelter'});
       if(kind==='shop')interact.push({x:12,y:12,action:'shop',prompt:'E — Shop'});
@@ -111,7 +111,7 @@ var SCENE_CATALOG = (function () {
       objects.push({t:'door',x:13,y:17,doorTo:(links[id]||[])[0],label:'Next area'});
     }
     (links[id]||[]).forEach(function(target,i){interact.push({x:2+i*4,y:17,action:'door',doorTo:target,prompt:'E — Go to '+(definitions.find(function(v){return v[0]===target;})||[])[2]});});
-    var scene={id:id,placeId:pid,name:d[2],region:p.region,lat:p.lat,lng:p.lng,tz:p.tz||3,kind:kind,biome:biome,width:27,height:19,tiles:tileRows(kind),objects:objects,interact:interact,inside:inside,description:'A hand-built illustrative game scene at the real coordinates of '+p.name+'.',placeName:p.name};
+    var scene={id:id,placeId:pid,name:d[2],region:p.region,lat:p.lat,lng:p.lng,tz:p.tz||3,kind:kind,biome:biome,width:27,height:19,tiles:tileRows(kind,pid),objects:objects,interact:interact,inside:inside,description:'A hand-built illustrative game scene at the real coordinates of '+p.name+'.',placeName:p.name};
     cache[id]=scene;return scene;
   }
   function all(){return definitions.map(function(d){return build(d[0]);});}
