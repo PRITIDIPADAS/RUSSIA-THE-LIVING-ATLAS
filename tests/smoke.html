@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RUSSIA: LIFE &amp; BEYOND — Smoke tests</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    body{overflow:auto;touch-action:auto;background:#d9d3c4;padding:22px}
+    main{max-width:850px;margin:0 auto;padding:22px}
+    h1{font:700 30px var(--serif)}
+    li{margin:7px 0}
+    .pass{color:#315d36}.fail{color:#9b3324}
+    #result{font:700 18px var(--serif);margin-bottom:12px}
+    a{color:#34546c}
+  </style>
+</head>
+<body>
+  <main class="sheet">
+    <div class="kicker">DEVELOPMENT CHECKS</div>
+    <h1>RUSSIA: LIFE &amp; BEYOND — Smoke tests</h1>
+    <p>These checks inspect the game's local data and module contracts. They do not change your save file or claim to be a full browser playthrough.</p>
+    <div id="result">Running checks…</div>
+    <ol id="checks"></ol>
+    <p><a href="../index.html">Return to the game</a></p>
+  </main>
+
+  <script src="../css/js/data.js"></script>
+  <script src="../js/art.js"></script>
+  <script src="../js/art2.js"></script>
+  <script src="../js/scenes.js"></script>
+  <script src="../js/engine.js"></script>
+  <script src="../js/travel.js"></script>
+  <script>
+    (function () {
+      var checks = [];
+      function test(name, fn) {
+        try {
+          var detail = fn();
+          checks.push({name:name,ok:detail!==false,detail:typeof detail==='string'?detail:''});
+        } catch (error) {
+          checks.push({name:name,ok:false,detail:error.message||String(error)});
+        }
+      }
+      function assert(value, message) { if (!value) throw new Error(message||'Assertion failed'); return true; }
+
+      test('Scene catalogue loads 34 hand-built areas', function () {
+        var all=SCENE_CATALOG.all();assert(all.length===34,'Found '+all.length+' scenes.');return all.length+' scenes';
+      });
+      test('Seven playable destinations are represented', function () {
+        var ids=new Set(SCENE_CATALOG.all().map(function(s){return s.placeId;}));
+        assert(ids.size===7,'Found '+ids.size+' place IDs.');return ids.size+' destinations';
+      });
+      test('Every scene has a complete 27 × 19 tile grid', function () {
+        var bad=SCENE_CATALOG.all().filter(function(s){return s.tiles.length!==s.height||s.tiles.some(function(row){return row.length!==s.width;});});
+        assert(!bad.length,bad.length+' scenes have malformed grids.');return 'All tile grids valid';
+      });
+      test('Every scene connection points to an existing scene', function () {
+        var missing=[];Object.keys(SCENE_CATALOG.links).forEach(function(id){SCENE_CATALOG.links[id].forEach(function(to){if(!SCENE_CATALOG.build(to))missing.push(id+' → '+to);});});
+        assert(!missing.length,missing.join(', '));return 'No broken scene links';
+      });
+      test('Moscow flat is the new-game start', function () {
+        assert(SCENE_CATALOG.build(SCENE_CATALOG.start).id==='msk_flat');return 'Starts in Your flat';
+      });
+      test('Only Listvyanka and Sochi beaches contain designated swim tiles', function () {
+        var b=SCENE_CATALOG.build('bkl_beach'),s=SCENE_CATALOG.build('soc_beach'),k=SCENE_CATALOG.build('kam_beach');
+        function count(scene){return scene.tiles.join('').split('w').length-1;}
+        assert(count(b)>0,'Baikal beach has no swim tiles.');
+        assert(count(s)>0,'Sochi beach has no swim tiles.');
+        assert(count(k)===0,'Kamchatka black-sand beach was incorrectly marked swimmable.');
+        return 'Baikal and Sochi designated; Kamchatka not swimmable';
+      });
+      test('All curated discovery entries have source links', function () {
+        var keys=Object.keys(DISC),bad=keys.filter(function(k){return !DISC[k].src||!DISC[k].src.length||DISC[k].src.some(function(s){return !/^https?:\/\//.test(s[1]);});});
+        assert(!bad.length,bad.join(', '));return keys.length+' entries include sources';
+      });
+      test('Original artwork registry includes the player and core flat furniture', function () {
+        ['person','npc','bed','fridge','stove','shower','toilet','wardrobe','tree'].forEach(function(k){assert(ART.DEF[k],'Missing ART type: '+k);});
+        return 'Player and core furniture registered';
+      });
+      test('ART2 exposes character, pet and journey drawing functions', function () {
+        assert(window.ART2&&typeof ART2.person==='function'&&typeof ART2.pet==='function'&&typeof ART2.journey==='function');
+        return 'Character, pet and journey APIs present';
+      });
+      test('Engine and travel entry points load', function () {
+        assert(typeof GAME_ENGINE.start==='function'&&typeof GAME_ENGINE.update==='function');
+        assert(typeof GAME_TRAVEL.open==='function'&&typeof GAME_TRAVEL.begin==='function');
+        return 'Engine and travel modules loaded';
+      });
+      test('Every travel edge references known real-coordinate nodes', function () {
+        var ids=new Set(Object.keys(LOCS).concat(Object.keys(TRANSIT)));
+        var missing=EDGES.filter(function(e){return !ids.has(e[0])||!ids.has(e[1]);});
+        assert(!missing.length,JSON.stringify(missing));return EDGES.length+' schematic edges';
+      });
+
+      var list=document.getElementById('checks'),passed=0;
+      checks.forEach(function(c){var li=document.createElement('li');li.className=c.ok?'pass':'fail';li.textContent=(c.ok?'PASS — ':'FAIL — ')+c.name+(c.detail?' · '+c.detail:'');list.appendChild(li);if(c.ok)passed++;});
+      var result=document.getElementById('result');
+      result.textContent=passed+'/'+checks.length+' checks passed';
+      result.style.color=passed===checks.length?'#315d36':'#9b3324';
+    })();
+  </script>
+</body>
+</html>
