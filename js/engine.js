@@ -4,7 +4,7 @@ var GAME_ENGINE = (function () {
   var canvas,ctx,last=0,raf=0,keys={},touch={x:0,y:0,run:false},dpr=1;
   var saveKey='russia-life-beyond-save-v1',scene=null,near=null,elapsed=0,toast='';
   function clamp(v,a,b){return v<a?a:v>b?b:v;}
-  var state=null,camera={x:0,y:0},paused=false,weatherInfo={kind:'clear',temp:null,wind:.15,cloud:.2,source:'climate'},weatherAt=0,weatherPending=false;
+  var state=null,camera={x:0,y:0},paused=false,weatherInfo={kind:'clear',temp:null,wind:.15,cloud:.2,source:'climate'},weatherAt=0,weatherPlace='',weatherPending=false;
   var names=['energy','hunger','thirst','hygiene','bladder','mood','social'];
   function fresh(){
     return {date:'2026-11-16',minutes:480,scene:'msk_flat',x:13*32,y:11*32,dir:'down',anim:'idle',money:4500,
@@ -25,7 +25,22 @@ var GAME_ENGINE = (function () {
   }
   function notify(s){toast=String(s);if(window.GAME_UI)GAME_UI.toast(toast);}
   function fallbackWeather(){var p=SCENE_CATALOG.places[scene.placeId]||{},m=new Date(state.date).getMonth(),temp=p.clim?p.clim[m]:0,seed=String(state.date+scene.placeId).split('').reduce(function(a,ch){return(a*31+ch.charCodeAt(0))>>>0;},7)%100,k= temp<0?(seed<40?'snow':seed<58?'cloudy':seed<65?'fog':'clear'):(seed<16?'rain':seed<34?'cloudy':seed<39?'fog':seed<43?'wind':'clear');weatherInfo={kind:k,temp:temp,wind:k==='storm'?.85:k==='wind'?.75:.18,cloud:k==='clear'?.12:.55,source:'monthly climate fallback'};}
-  function refreshWeather(){if(!scene||!state)return;fallbackWeather();if(!state.settings.weather||typeof fetch!=='function'||(typeof navigator!=='undefined'&&!navigator.onLine))return;if(weatherPending||Date.now()-weatherAt<600000)return;var p=SCENE_CATALOG.places[scene.placeId];if(!p)return;weatherPending=true;var url='https://api.open-meteo.com/v1/forecast?latitude='+p.lat+'&longitude='+p.lng+'&current=temperature_2m,precipitation,weather_code,cloud_cover,wind_speed_10m&timezone=auto';fetch(url).then(function(r){if(!r.ok)throw new Error('Weather unavailable');return r.json();}).then(function(data){var v=data.current;if(!v)return;var code=+v.weather_code,k=code===0?'clear':code<=3?'cloudy':code===45||code===48?'fog':code>=95?'storm':code>=71?'snow':code>=51?'rain':(v.wind_speed_10m||0)>35?'wind':'clear';weatherInfo={kind:k,temp:+v.temperature_2m,wind:clamp((+v.wind_speed_10m||0)/65,0,1),cloud:clamp((+v.cloud_cover||0)/100,0,1),source:'Open-Meteo'};weatherAt=Date.now();}).catch(function(){weatherAt=Date.now();}).finally(function(){weatherPending=false;});}
+  function refreshWeather(){
+    if(!scene||!state)return;
+    fallbackWeather();
+    if(!state.settings.weather||typeof fetch!=='function'||(typeof navigator!=='undefined'&&!navigator.onLine))return;
+    var requestedPlace=scene.placeId;
+    if(weatherPending||(weatherPlace===requestedPlace&&Date.now()-weatherAt<600000))return;
+    var p=SCENE_CATALOG.places[requestedPlace];if(!p)return;
+    weatherPending=true;weatherPlace=requestedPlace;
+    var url='https://api.open-meteo.com/v1/forecast?latitude='+p.lat+'&longitude='+p.lng+'&current=temperature_2m,precipitation,weather_code,cloud_cover,wind_speed_10m&timezone=auto';
+    fetch(url).then(function(r){if(!r.ok)throw new Error('Weather unavailable');return r.json();}).then(function(data){
+      var v=data.current;if(!v)return;
+      var code=+v.weather_code,k=code===0?'clear':code<=3?'cloudy':code===45||code===48?'fog':code>=95?'storm':code>=71?'snow':code>=51?'rain':(v.wind_speed_10m||0)>35?'wind':'clear';
+      if(scene&&scene.placeId===requestedPlace)weatherInfo={kind:k,temp:+v.temperature_2m,wind:clamp((+v.wind_speed_10m||0)/65,0,1),cloud:clamp((+v.cloud_cover||0)/100,0,1),source:'Open-Meteo'};
+      weatherAt=Date.now();
+    }).catch(function(){weatherAt=Date.now();}).finally(function(){weatherPending=false;if(scene&&scene.placeId!==requestedPlace)refreshWeather();});
+  }
   function addNeed(k,v){state.needs[k]=clamp((state.needs[k]||0)+v,0,100);}
   function enterNew(){state=fresh();setScene('msk_flat',13*32,11*32);notify('Доброе утро! Your Moscow morning begins.');}
   function start(){paused=true;canvas=document.getElementById('game');ctx=canvas.getContext('2d');resize();window.addEventListener('resize',resize);
