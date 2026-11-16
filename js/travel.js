@@ -22,7 +22,11 @@ var GAME_TRAVEL = (function () {
       map.addControl(new ml.NavigationControl(),'bottom-left');
       map.on('load',function(){mapReady=true;var features=[];Object.keys(nodes()).forEach(function(id){var p=nodes()[id];features.push({type:'Feature',geometry:{type:'Point',coordinates:[p.lng,p.lat]},properties:{id:id,name:p.name,playable:!!places()[id]}});});
         map.addSource('russia-life-places',{type:'geojson',data:{type:'FeatureCollection',features:features}});
+        map.addSource('russia-life-network',{type:'geojson',data:{type:'FeatureCollection',features:(typeof EDGES!=='undefined'?EDGES:[]).map(function(e){var a=nodes()[e[0]],b=nodes()[e[1]];return a&&b?{type:'Feature',geometry:{type:'LineString',coordinates:[[a.lng,a.lat],[b.lng,b.lat]]},properties:{mode:e[2]}}:null;}).filter(Boolean)}});
+        map.addLayer({id:'russia-life-network-lines',type:'line',source:'russia-life-network',paint:{'line-color':'#9b3324','line-width':1.5,'line-opacity':.45}});
         map.addLayer({id:'russia-life-points',type:'circle',source:'russia-life-places',paint:{'circle-radius':['case',['get','playable'],7,4],'circle-color':['case',['get','playable'],'#9b3324','#34546c'],'circle-stroke-color':'#eee6d3','circle-stroke-width':2}});
+        var gs=GAME_ENGINE.getState(),pid=gs&&gs.scene?gs.scene.slice(0,3):'msk',pp=nodes()[pid];if(pp){map.addSource('russia-life-player',{type:'geojson',data:{type:'Feature',geometry:{type:'Point',coordinates:[pp.lng,pp.lat]},properties:{name:'Your current region'}}});map.addLayer({id:'russia-life-player-dot',type:'circle',source:'russia-life-player',paint:{'circle-radius':9,'circle-color':'#a8822c','circle-stroke-color':'#1d2230','circle-stroke-width':2}});}
+        map.fitBounds([[19,41],[180,82]],{padding:28,maxZoom:3.1});
         map.on('click','russia-life-points',function(e){var f=e.features&&e.features[0];if(f)select(f.properties.id);});
       });
       map.on('error',function(){if(!mapReady)drawFallback();});
@@ -31,7 +35,7 @@ var GAME_TRAVEL = (function () {
   function drawFallback(){
     var el=document.getElementById('mapc');if(!el)return;var ps=nodes(),ids=Object.keys(ps);
     el.innerHTML='<div style="position:absolute;inset:0;background:#d6d2c5;overflow:hidden"><svg viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%"><path d="M80 210 L190 120 380 80 560 100 760 80 920 190 880 350 720 460 510 510 320 450 150 390Z" fill="#e7e0ce" stroke="#777b78" stroke-width="3"/><text x="500" y="300" text-anchor="middle" fill="#6b706c" font-size="24">RUSSIA · SCHEMATIC VIEW</text></svg></div>';
-    ids.forEach(function(id){var p=ps[id],x=50+(p.lng+180)/360*90,y=15+(90-p.lat)/180*75,b=document.createElement('button');b.textContent=p.name;b.style.cssText='position:absolute;left:'+x+'%;top:'+y+'%;font:12px PT Sans;background:#eee6d3;border:1px solid #1d2230;padding:4px;';b.onclick=function(){select(id);};el.appendChild(b);});
+    ids.forEach(function(id){var p=ps[id],x=8+(p.lng-19)/161*84,y=8+(82-p.lat)/41*84,b=document.createElement('button');b.textContent=p.name;b.style.cssText='position:absolute;left:'+x+'%;top:'+y+'%;font:12px PT Sans;background:#eee6d3;border:1px solid #1d2230;padding:4px;';b.onclick=function(){select(id);};el.appendChild(b);});
     var badge=document.getElementById('mapbadge');if(badge)badge.textContent='Offline schematic fallback · illustrative positions · © OpenStreetMap contributors when live map is available';
   }
   function select(id){var ns=nodes()[id];if(!ns)return;selected=id;var box=document.getElementById('mapside'),play=!!places()[id];if(!box)return;
