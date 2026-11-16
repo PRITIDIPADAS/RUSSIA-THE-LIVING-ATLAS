@@ -114,9 +114,9 @@ var GAME_ENGINE = (function () {
       var metres=speed*dt*.04;state.stats.distance+=metres;if(running)state.stats.runM+=metres;else if(scene.kind==='trail')state.stats.hikeM+=metres;
       addNeed('energy',-(running?.12:.035)*dt);addNeed('hunger',-.018*dt);addNeed('thirst',-.026*dt);
     }else state.anim='idle';
-    advance(dt*60);
-    addNeed('hunger',-.004*dt*60);addNeed('thirst',-.006*dt*60);addNeed('hygiene',-.002*dt*60);addNeed('bladder',.003*dt*60);addNeed('social',-.001*dt*60);
-    if(state.pet){state.pet.care=clamp(state.pet.care-.003*dt*60,0,100);}
+    advance(dt);
+    addNeed('hunger',-.004*dt);addNeed('thirst',-.006*dt);addNeed('hygiene',-.002*dt);addNeed('bladder',.003*dt);addNeed('social',-.001*dt);
+    if(state.pet){state.pet.care=clamp(state.pet.care-.003*dt,0,100);}
     near=nearest();discover();spotWildlife();checkQuests();
   }
   function drawTile(x,y,c){
