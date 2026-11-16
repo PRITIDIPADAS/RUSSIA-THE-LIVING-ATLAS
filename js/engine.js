@@ -8,17 +8,20 @@ var GAME_ENGINE = (function () {
   var names=['energy','hunger','thirst','hygiene','bladder','mood','social'];
   function fresh(){
     return {date:'2026-11-16',minutes:480,scene:'msk_flat',x:13*32,y:11*32,dir:'down',anim:'idle',money:4500,
-      needs:{energy:92,hunger:88,thirst:90,hygiene:85,bladder:5,mood:80,social:55},
+      needs:{energy:92,hunger:88,thirst:90,hygiene:85,bladder:5,mood:80,social:55},utcDate:'2026-11-16',utcMinutes:300,
       inventory:{bread:2,kefir:1,water:2,tea:1},outfit:'everyday',pet:null,disc:{},visited:{msk:true},
       species:{},stats:{meals:0,drinks:0,showers:0,changes:0,talks:0,exhibits:0,runM:0,hikeM:0,swimM:0,petFeeds:0,petPlays:0,camps:0,distance:0},
       quests:{},settings:{weather:true,sound:false},born:Date.now()};
   }
+  function shiftDate(date,days){return new Date(Date.parse(date+'T00:00:00Z')+days*86400000).toISOString().slice(0,10);}
+  function syncLocalClock(){if(!state)return;var tz=scene&&scene.tz!==undefined?scene.tz:3,total=state.utcMinutes+tz*60,day=Math.floor(total/1440);state.minutes=((total%1440)+1440)%1440;state.date=shiftDate(state.utcDate,day);}
+  function normalize(saved){var base=fresh(),s=saved||{};Object.assign(base,s);base.needs=Object.assign({},fresh().needs,s.needs||{});base.stats=Object.assign({},fresh().stats,s.stats||{});base.inventory=Object.assign({},fresh().inventory,s.inventory||{});base.disc=Object.assign({},s.disc||{});base.visited=Object.assign({},s.visited||{});base.species=Object.assign({},s.species||{});base.quests=Object.assign({},s.quests||{});base.settings=Object.assign({},fresh().settings,s.settings||{});var oldScene=SCENE_CATALOG.build(base.scene)||SCENE_CATALOG.build('msk_flat');if(!Number.isFinite(base.utcMinutes)||!base.utcDate){var tz=oldScene&&oldScene.tz||3,local=Number(base.minutes)||480,utc=local-tz*60,shift=Math.floor(utc/1440);base.utcMinutes=((utc%1440)+1440)%1440;base.utcDate=shiftDate(base.date||'2026-11-16',shift);}return base;}
   function save(){try{state.updated=Date.now();localStorage.setItem(saveKey,JSON.stringify(state));return true;}catch(e){return false;}}
   function load(){try{var s=JSON.parse(localStorage.getItem(saveKey)||'null');return s&&s.scene?s:null;}catch(e){return null;}}
   function setScene(id,x,y){
     var s=SCENE_CATALOG.build(id);if(!s){notify('That area is not available yet.');return false;}
     scene=s;state.scene=id;state.x=x===undefined?13*32:x;state.y=y===undefined?12*32:y;
-    state.visited[s.placeId]=true;near=null;refreshWeather();save();return true;
+    state.visited=state.visited||{};state.visited[s.placeId]=true;near=null;syncLocalClock();refreshWeather();save();return true;
   }
   function notify(s){toast=String(s);if(window.GAME_UI)GAME_UI.toast(toast);}
   function fallbackWeather(){var p=SCENE_CATALOG.places[scene.placeId]||{},m=new Date(state.date).getMonth(),temp=p.clim?p.clim[m]:0,seed=String(state.date+scene.placeId).split('').reduce(function(a,ch){return(a*31+ch.charCodeAt(0))>>>0;},7)%100,k= temp<0?(seed<40?'snow':seed<58?'cloudy':seed<65?'fog':'clear'):(seed<16?'rain':seed<34?'cloudy':seed<39?'fog':seed<43?'wind':'clear');weatherInfo={kind:k,temp:temp,wind:k==='storm'?.85:k==='wind'?.75:.18,cloud:k==='clear'?.12:.55,source:'monthly climate fallback'};}
@@ -27,8 +30,7 @@ var GAME_ENGINE = (function () {
   function enterNew(){state=fresh();setScene('msk_flat',13*32,11*32);notify('Доброе утро! Your Moscow morning begins.');}
   function start(){paused=true;canvas=document.getElementById('game');ctx=canvas.getContext('2d');resize();window.addEventListener('resize',resize);
     window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);
-    var s=load();if(s){state=s;setScene(s.scene,s.x,s.y);state=Object.assign(fresh(),s);setScene(state.scene,state.x,state.y);}
-    else enterNew();
+    var s=load();if(s){state=normalize(s);setScene(state.scene,state.x,state.y);}else enterNew();
     last=performance.now();if(!raf)raf=requestAnimationFrame(loop);return state;
   }
   function resize(){if(!canvas)return;dpr=Math.min(2,window.devicePixelRatio||1);canvas.width=Math.floor(innerWidth*dpr);canvas.height=Math.floor(innerHeight*dpr);canvas.style.width=innerWidth+'px';canvas.style.height=innerHeight+'px';}
@@ -37,13 +39,16 @@ var GAME_ENGINE = (function () {
   function keyup(e){keys[e.key.toLowerCase()]=false;}
   function axis(){return {x:(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0)+touch.x,y:(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0)+touch.y};}
   function solidAt(px,py){
-    var tx=Math.floor(px/32),ty=Math.floor(py/32),row=scene.tiles[ty]||'',c=row[tx]||'W';
-    if('W~r'.indexOf(c)>=0)return true;
-    for(var i=0;i<scene.objects.length;i++){var o=scene.objects[i];if(o.t==='door'||o.action===undefined&&o.t!=='bld'&&o.t!=='tree'&&o.t!=='bench'&&o.t!=='bed'&&o.t!=='tree')continue;
-      if(o.t==='bld'||o.t==='tree'||o.t==='fridge'||o.t==='stove'||o.t==='wardrobe'||o.t==='sofa'||o.t==='table'||o.t==='bench'||o.t==='bed'){
-        var w=(o.w||1)*32,h=(o.h||1)*32;if(px>o.x*32&&px<(o.x*32+w)&&py>o.y*32&&py<o.y*32+h)return true;
-      }
-    }return false;
+    var tx=Math.floor(px/32),ty=Math.floor(py/32),row=scene.tiles[ty]||'',ch=row[tx]||'W';
+    if('W~r'.indexOf(ch)>=0)return true;
+    for(var i=0;i<scene.objects.length;i++){
+      var o=scene.objects[i];
+      if(o.t==='door'||(scene.inside&&o.t==='bld'))continue;
+      if(['bld','tree','fridge','stove','wardrobe','sofa','table','bench','bed'].indexOf(o.t)<0)continue;
+      var w=(o.w||1)*32,h=(o.h||1)*32;
+      if(px>o.x*32&&px<(o.x*32+w)&&py>o.y*32&&py<(o.y*32+h))return true;
+    }
+    return false;
   }
   function nearest(){
     var best=null,bd=58;
@@ -79,8 +84,10 @@ var GAME_ENGINE = (function () {
     save();discover();checkQuests();
   }
   function consume(k){if((state.inventory[k]||0)<1){notify('You do not have '+k+'. Visit a shop.');return;}state.inventory[k]--;if(k==='water'){addNeed('thirst',38);state.stats.drinks++;}else{addNeed('hunger',24);state.stats.meals++;}advance(8);notify('You enjoyed '+k+'.');}
-  function advance(minutes){state.minutes+=minutes;state.date=new Date(new Date(state.date+'T00:00:00Z').getTime()+Math.floor(state.minutes/1440)*86400000).toISOString().slice(0,10);state.minutes%=1440;}
-  function discover(){var ds=typeof DISC!=='undefined'?DISC:{},p=SCENE_CATALOG.places[scene.placeId];Object.keys(ds).forEach(function(k){var d=ds[k],dist=Math.hypot((d.lat-p.lat)*111,(d.lng-p.lng)*65);if(dist<(d.r||10)&&!state.disc[k]){state.disc[k]=true;notify('DISCOVERY UNLOCKED — '+d.name);if(window.GAME_UI)GAME_UI.discovery(k);}});}
+  function advance(minutes){var total=state.utcMinutes+minutes,days=Math.floor(total/1440);state.utcMinutes=((total%1440)+1440)%1440;state.utcDate=shiftDate(state.utcDate,days);syncLocalClock();}
+  function unlockDiscovery(k){var d=typeof DISC!=='undefined'?DISC[k]:null;if(!d||state.disc[k])return false;state.disc[k]=true;notify('DISCOVERY UNLOCKED — '+d.name);if(window.GAME_UI)GAME_UI.discovery(k);save();return true;}
+  function discover(){var allowed={msk_square:['kremlin'],spb_hermitage:['hermitage'],spb_strelka:['hermitage'],kzn_kremlin:['kazan','volga'],bkl_village:['baikal'],bkl_museum:['baikal'],bkl_beach:['baikal'],bkl_trail:['taiga'],elb_village:['elbrus'],elb_trail:['elbrus'],kam_bay:['kamchatka'],kam_tundra:['kamchatka'],soc_promenade:['sochi']};(allowed[scene.id]||[]).forEach(unlockDiscovery);}
+  function discoverNear(lat,lng,radiusKm){if(typeof DISC==='undefined')return;var limit=Number(radiusKm)||35;Object.keys(DISC).forEach(function(k){var d=DISC[k],pts=d.pts||[[d.lat,d.lng]],found=pts.some(function(p){var dy=(p[0]-lat)*111.32,dx=(p[1]-lng)*111.32*Math.cos(lat*Math.PI/180);return Math.hypot(dx,dy)<=Math.min(limit,Number(d.r)||limit);});if(found)unlockDiscovery(k);});}
   function spotWildlife(){if(typeof SPECIES==='undefined')return;var map={squirrel:'squirrel',crow:'crow',gull:'mgull',seal:'nerpa',deer:'roe',bear:'bear',tur:'tur',dolphin:'dolphin'};(scene.objects||[]).forEach(function(o){var k=map[o.t]||o.species;if(!k||!SPECIES[k]||state.species[k])return;var d=Math.hypot((o.x+.5)*32-state.x,(o.y+.5)*32-state.y);if(d<88){state.species[k]=true;notify('Field journal: '+SPECIES[k].name+' ('+SPECIES[k].sci+').');}});}
   function checkQuests(){if(typeof QUESTS==='undefined')return;QUESTS.forEach(function(q){if(state.quests[q.id])return;var done=q.steps.every(function(step){try{return !!step[1](state);}catch(e){return false;}});if(done){state.quests[q.id]=true;state.money+=q.r;notify('MISSION COMPLETE — '+q.t+' · ₽'+q.r);}});}
   function petAction(action){if(!state.pet){notify('Adopt a pet first.');return;}if(action==='feed'){if(!state.inventory.petfood){notify('Buy pet food at a shop.');return;}state.inventory.petfood--;state.pet.care=100;state.stats.petFeeds++;notify(state.pet.name+' enjoyed the food.');}else if(action==='play'){state.pet.care=clamp(state.pet.care+8,0,100);state.stats.petPlays++;addNeed('mood',8);notify('You played with '+state.pet.name+'.');}save();checkQuests();}
@@ -92,13 +99,13 @@ var GAME_ENGINE = (function () {
       var metres=speed*dt*.04;state.stats.distance+=metres;if(running)state.stats.runM+=metres;else if(scene.kind==='trail')state.stats.hikeM+=metres;
       addNeed('energy',-(running?.12:.035)*dt);addNeed('hunger',-.018*dt);addNeed('thirst',-.026*dt);
     }else state.anim='idle';
-    state.minutes+=dt;var add=Math.floor(state.minutes/1440);if(add){state.minutes%=1440;state.date=new Date(new Date(state.date+'T00:00:00Z').getTime()+add*86400000).toISOString().slice(0,10);}
-    addNeed('hunger',-.004*dt);addNeed('thirst',-.006*dt);addNeed('hygiene',-.002*dt);addNeed('bladder',.003*dt);addNeed('social',-.001*dt);
-    if(state.pet){state.pet.care=clamp(state.pet.care-.003*dt,0,100);}
+    advance(dt*60);
+    addNeed('hunger',-.004*dt*60);addNeed('thirst',-.006*dt*60);addNeed('hygiene',-.002*dt*60);addNeed('bladder',.003*dt*60);addNeed('social',-.001*dt*60);
+    if(state.pet){state.pet.care=clamp(state.pet.care-.003*dt*60,0,100);}
     near=nearest();discover();spotWildlife();checkQuests();
   }
   function drawTile(x,y,c){
-    if(typeof T!=='undefined'&&window.ART&&ART.tile){ART.tile(ctx,c,x,y,env(),function(tx,ty){return (scene.tiles[ty]||'')[tx]||'W';});return;}
+    if(typeof T!=='undefined'&&typeof ART!=='undefined'&&ART.tile){ART.tile(ctx,c,x,y,env(),function(tx,ty){return (scene.tiles[ty]||'')[tx]||'W';});return;}
     var colors={'.':'#77945b',',':'#9bab68','=':'#55575b',':':'#c5bda9','#':'#696765','f':'#a88058','m':'#b7b0a5','t':'#a6aaa2','W':'#b1a58e','~':'#3f778a','w':'#5799a4','d':'#a9916e','n':'#92917b','p':'#c7b9a1'};
     ctx.fillStyle=colors[c]||'#7b9660';ctx.fillRect(x*32,y*32,32,32);ctx.strokeStyle='rgba(29,34,48,.07)';ctx.strokeRect(x*32+.5,y*32+.5,31,31);
   }
@@ -110,8 +117,8 @@ var GAME_ENGINE = (function () {
     ctx.save();ctx.translate(-camera.x,-camera.y);
     for(var y=Math.max(0,Math.floor(camera.y/32));y<Math.min(scene.height,Math.ceil((camera.y+h)/32));y++)for(var x=Math.max(0,Math.floor(camera.x/32));x<Math.min(scene.width,Math.ceil((camera.x+w)/32));x++)drawTile(x,y,(scene.tiles[y]||'')[x]||'W');
     var objs=scene.objects.slice().sort(function(a,b){return a.y-b.y;});
-    objs.forEach(function(o){if(o.t==='door')return;if(window.ART&&typeof T!=='undefined'&&ART.DEF&&ART.DEF[o.t])ART.draw(ctx,o,env(),elapsed);else if(o.t==='npc'||o.t==='person')fallbackActor((o.x+.5)*32,(o.y+.65)*32,'npc');else{ctx.fillStyle=o.t==='tree'?'#42613d':o.t==='bed'?'#9a7657':'#80664c';ctx.fillRect(o.x*32+4,o.y*32+5,(o.w||1)*32-8,(o.h||1)*32-10);}});
-    if(window.ART&&typeof T!=='undefined'&&ART.DEF&&ART.DEF.person)ART.draw(ctx,{t:'person',x:state.x/32-.5,y:state.y/32-.82,dir:state.dir,anim:state.anim,look:(typeof OUTFITS!=='undefined'&&OUTFITS[state.outfit])?OUTFITS[state.outfit].look:{top:'#34546c',legs:'#2a2f3a'}},env(),elapsed);else fallbackActor(state.x,state.y,'player');
+    objs.forEach(function(o){if(o.t==='door')return;if(typeof ART!=='undefined'&&typeof T!=='undefined'&&ART.DEF&&ART.DEF[o.t])ART.draw(ctx,o,env(),elapsed);else if(o.t==='npc'||o.t==='person')fallbackActor((o.x+.5)*32,(o.y+.65)*32,'npc');else{ctx.fillStyle=o.t==='tree'?'#42613d':o.t==='bed'?'#9a7657':'#80664c';ctx.fillRect(o.x*32+4,o.y*32+5,(o.w||1)*32-8,(o.h||1)*32-10);}});
+    if(typeof ART!=='undefined'&&typeof T!=='undefined'&&ART.DEF&&ART.DEF.person)ART.draw(ctx,{t:'person',x:state.x/32-.5,y:state.y/32-.82,dir:state.dir,anim:state.anim,look:(typeof OUTFITS!=='undefined'&&OUTFITS[state.outfit])?OUTFITS[state.outfit].look:{top:'#34546c',legs:'#2a2f3a'}},env(),elapsed);else fallbackActor(state.x,state.y,'player');
     if(state.pet&&window.ART2)ART2.pet(ctx,state.x-34+Math.sin(elapsed/400)*5,state.y+11+Math.cos(elapsed/550)*3,{kind:state.pet.kind,color:state.pet.color},env(),elapsed);
     ctx.restore();
     if(window.ART2)ART2.lighting(ctx,0,0,w,h,env(),elapsed);
@@ -120,10 +127,11 @@ var GAME_ENGINE = (function () {
     else if(window.GAME_UI)GAME_UI.prompt('');
   }
   function loop(now){var dt=Math.min(.05,(now-last)/1000||0);last=now;elapsed+=dt*1000;if(!paused){update(dt);if(Math.floor(now/3000)!==Math.floor((now-dt*1000)/3000))save();}if(!paused||!window.GAME_TRAVEL||!GAME_TRAVEL.getJourney())draw();raf=requestAnimationFrame(loop);}
-  function setTouch(x,y,run){touch={x:x,y:y,run:!!run};}
+  function setTouch(x,y,run){if(x!==null&&x!==undefined)touch.x=x;if(y!==null&&y!==undefined)touch.y=y;if(run!==null&&run!==undefined)touch.run=!!run;}
   function togglePause(v){paused=v;}
   function getState(){return state;}
   function getScene(){return scene;}
   function getNear(){return near;}
-  return {start:start,newGame:enterNew,save:save,load:load,use:use,notify:notify,setTouch:setTouch,pause:togglePause,getState:getState,getScene:getScene,getNear:getNear,advance:advance,consume:consume,petAction:petAction,addNeed:addNeed,scene:setScene,update:update,discover:discover,refreshWeather:refreshWeather,getWeather:function(){return weatherInfo;}};
+  function getGeo(){if(!scene)return null;var lat=scene.lat||SCENE_CATALOG.places[scene.placeId].lat,lng=scene.lng||SCENE_CATALOG.places[scene.placeId].lng,dx=(state.x/32-13.5)*12,dy=(state.y/32-9.5)*12;return {lat:lat-dy/111320,lng:lng+dx/(111320*Math.max(.2,Math.cos(lat*Math.PI/180)))};}
+  return {start:start,newGame:enterNew,save:save,load:load,use:use,notify:notify,setTouch:setTouch,pause:togglePause,getState:getState,getScene:getScene,getNear:getNear,getGeo:getGeo,advance:advance,consume:consume,petAction:petAction,addNeed:addNeed,scene:setScene,update:update,discover:discover,discoverNear:discoverNear,unlockDiscovery:unlockDiscovery,refreshWeather:refreshWeather,getWeather:function(){return weatherInfo;}};
 })();
