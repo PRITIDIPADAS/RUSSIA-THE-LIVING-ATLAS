@@ -16,6 +16,7 @@ var GAME_TRAVEL = (function () {
   function updatePlayerMarker(){if(!map||!mapReady||!window.GAME_ENGINE||!GAME_ENGINE.getGeo)return;var g=GAME_ENGINE.getGeo(),src=map.getSource('russia-life-player');if(g&&src)src.setData({type:'Feature',geometry:{type:'Point',coordinates:[g.lng,g.lat]},properties:{name:'Your approximate local-scene position'}});}
   function showMap(){var wrap=document.getElementById('mapwrap');if(!wrap)return;wrap.classList.remove('hidden');if(window.GAME_ENGINE)GAME_ENGINE.pause(true);if(map){setTimeout(function(){map.resize();updatePlayerMarker();},100);return;}loadMapLibre();}
   function loadMapLibre(){
+    if(window.RUSSIA_OPENFREEMAP_ADULT_APPROVAL!==true){drawFallback();var notice=document.getElementById('mapbadge');if(notice)notice.textContent='Schematic locator only. Live OpenFreeMap tiles are disabled pending review by an adult project maintainer.';return;}
     var css='https://unpkg.com/maplibre-gl@6.18.0/dist/maplibre-gl.css';
     if(!document.querySelector('link[data-maplibre]')){var l=document.createElement('link');l.rel='stylesheet';l.href=css;l.dataset.maplibre='1';document.head.appendChild(l);}
     import('https://unpkg.com/maplibre-gl@6.18.0/dist/maplibre-gl.mjs').then(function(ml){
@@ -34,10 +35,10 @@ var GAME_TRAVEL = (function () {
     }).catch(drawFallback);
   }
   function drawFallback(){
-    var el=document.getElementById('mapc');if(!el)return;var ps=nodes(),ids=Object.keys(ps);
+    var el=document.getElementById('mapc');if(!el)return;var ps=nodes(),ids=Object.keys(ps).filter(function(id){return id.indexOf('poi_')!==0;});
     el.innerHTML='<div style="position:absolute;inset:0;background:#d6d2c5;overflow:hidden"><svg viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%"><path d="M80 210 L190 120 380 80 560 100 760 80 920 190 880 350 720 460 510 510 320 450 150 390Z" fill="#e7e0ce" stroke="#777b78" stroke-width="3"/><text x="500" y="300" text-anchor="middle" fill="#6b706c" font-size="24">RUSSIA · SCHEMATIC VIEW</text></svg></div>';
     ids.forEach(function(id){var p=ps[id],x=8+(p.lng-19)/161*84,y=8+(82-p.lat)/41*84,b=document.createElement('button');b.textContent=p.name;b.style.cssText='position:absolute;left:'+x+'%;top:'+y+'%;font:12px PT Sans;background:#eee6d3;border:1px solid #1d2230;padding:4px;';b.onclick=function(){select(id);};el.appendChild(b);});
-    var badge=document.getElementById('mapbadge');if(badge)badge.textContent='Offline schematic fallback · illustrative positions · © OpenStreetMap contributors when live map is available';
+    var badge=document.getElementById('mapbadge');if(badge)badge.textContent='Schematic locator view · approximate silhouette and real coordinate markers · not an OSM basemap';
   }
   function select(id){var ns=nodes()[id];if(!ns)return;selected=id;var box=document.getElementById('mapside'),play=!!places()[id],poi=!!ns.discoveryKey;if(!box)return;
     var d=poi&&typeof DISC!=='undefined'?DISC[ns.discoveryKey]:null;
