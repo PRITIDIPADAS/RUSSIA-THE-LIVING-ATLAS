@@ -1,73 +1,126 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
-<title>Russia: Life & Beyond</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=PT+Sans:wght@400;700&family=PT+Serif:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1d2230">
+  <meta name="description" content="A cozy 2D life simulation and geographical exploration game set in Russia.">
+  <title>RUSSIA: LIFE &amp; BEYOND — The Living Atlas</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=PT+Sans:wght@400;700&family=PT+Serif:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<canvas id="game"></canvas>
+  <canvas id="game" aria-label="Russia: Life and Beyond game world"></canvas>
 
-<div id="hud" class="hidden">
-  <div id="where" class="sheet">
-    <div class="kicker" id="hRegion"></div>
-    <h1 id="hCity"></h1>
-    <div class="sub" id="hScene"></div>
-    <div class="line"><span id="hTime"></span><span id="hWx"></span></div>
-    <div id="status"></div>
+  <div id="hud" class="hidden">
+    <section id="where" class="sheet" aria-live="polite">
+      <div class="kicker" id="hRegion"></div>
+      <h1 id="hCity"></h1>
+      <div class="sub" id="hScene"></div>
+      <div class="line"><span id="hTime"></span><span id="hWx"></span></div>
+      <div id="status"></div>
+    </section>
+
+    <nav id="topright" aria-label="Game menus">
+      <div id="money" class="sheet"></div>
+      <button class="btn" type="button" data-ui="map">Map</button>
+      <button class="btn" type="button" data-ui="journal">Journal</button>
+      <button class="btn" type="button" data-ui="bag">Bag</button>
+      <button class="btn" type="button" data-ui="menu">Menu</button>
+    </nav>
+
+    <section id="needs" class="sheet" aria-label="Character needs"></section>
+    <div id="log" aria-live="polite"></div>
+    <div id="prompt" class="sheet hidden" aria-live="polite"></div>
   </div>
-  <div id="topright">
-    <div id="money" class="sheet"></div>
-    <button class="btn" data-ui="map">Map</button>
-    <button class="btn" data-ui="journal">Journal</button>
-    <button class="btn" data-ui="bag">Bag</button>
-    <button class="btn" data-ui="menu">Menu</button>
+
+  <div id="touch" class="hidden" aria-label="Touch game controls">
+    <div id="stick" aria-hidden="true"><i></i></div>
+    <div id="tbtns">
+      <button class="btn" type="button" id="tRun">Run</button>
+      <button class="btn primary" type="button" id="tUse">Use</button>
+    </div>
   </div>
-  <div id="needs" class="sheet"></div>
-  <div id="log"></div>
-  <div id="prompt" class="sheet hidden"></div>
-</div>
 
-<div id="touch" class="hidden">
-  <div id="stick"><i></i></div>
-  <div id="tbtns">
-    <button class="btn" id="tRun">Run</button>
-    <button class="btn primary" id="tUse">Use</button>
+  <section id="jui" class="sheet hidden" aria-live="polite">
+    <div class="kicker" id="jKick">Journey</div>
+    <div class="route" id="jRoute"></div>
+    <div class="sub" id="jLeg"></div>
+    <div id="jbar"><i></i></div>
+    <div class="sub" id="jMeta"></div>
+    <div id="jlog"></div>
+    <div class="actions" id="jAct"></div>
+  </section>
+
+  <div id="title" class="hidden">
+    <div class="card sheet" id="tcard"></div>
   </div>
-</div>
 
-<div id="jui" class="sheet hidden">
-  <div class="kicker" id="jKick">Journey</div>
-  <div class="route" id="jRoute"></div>
-  <div class="sub" id="jLeg"></div>
-  <div id="jbar"><i></i></div>
-  <div class="sub" id="jMeta"></div>
-  <div id="jlog"></div>
-  <div class="actions" id="jAct"></div>
-</div>
+  <div id="mapwrap" class="hidden">
+    <div id="mapc"></div>
+    <aside id="mapside" class="sheet"></aside>
+    <div id="mapbadge" class="sheet">Schematic locator view · Live map tiles are not enabled.</div>
+  </div>
 
-<div id="title" class="hidden"><div class="card sheet" id="tcard"></div></div>
+  <div id="modal" class="hidden">
+    <div class="sheet" id="mbox" role="dialog" aria-modal="true"></div>
+  </div>
 
-<div id="mapwrap" class="hidden">
-  <div id="mapc"></div>
-  <div id="mapside" class="sheet"></div>
-  <div id="mapbadge" class="sheet"></div>
-</div>
+  <div id="veil"><span id="veilText"></span></div>
+  <noscript>This game needs JavaScript enabled.</noscript>
 
-<div id="modal" class="hidden"><div class="sheet" id="mbox"></div></div>
-<div id="veil"><span id="veilText"></span></div>
-<noscript>This game needs JavaScript.</noscript>
+  <!-- Early error display: catches failures before the game UI module finishes loading. -->
+  <script>
+    (function () {
+      function escapeHTML(value) {
+        return String(value).replace(/[&<>"]/g, function (ch) {
+          return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch];
+        });
+      }
+      function showStartupError(message) {
+        var box = document.getElementById("errorBox");
+        if (!box) {
+          box = document.createElement("div");
+          box.id = "errorBox";
+          box.style.cssText = "position:fixed;z-index:100;left:10px;right:10px;bottom:10px;max-height:35vh;overflow:auto;background:#f2dfd8;color:#401c17;border:2px solid #9b3324;padding:10px;font:12px monospace;white-space:pre-wrap";
+          document.body.appendChild(box);
+        }
+        box.innerHTML = "<b>GAME ERROR — Copy this and send it to the AI</b><pre style='white-space:pre-wrap'>" +
+          escapeHTML(message) + "</pre><button id='copyStartupError' class='btn'>Copy error</button>";
+        var copy = document.getElementById("copyStartupError");
+        copy.onclick = function () {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(String(message)).catch(function () {});
+          }
+        };
+      }
+      window.addEventListener("error", function (event) {
+        if (event.target && event.target !== window) {
+          showStartupError("Resource failed to load: " + (event.target.src || event.target.href || "unknown resource"));
+        } else {
+          showStartupError((event.message || "Unknown JavaScript error") + "\n" +
+            (event.filename || "") + ":" + (event.lineno || 0) + ":" + (event.colno || 0));
+        }
+      }, true);
+      window.addEventListener("unhandledrejection", function (event) {
+        showStartupError("Unhandled promise rejection: " + String(event.reason && (event.reason.stack || event.reason) || "unknown"));
+      });
+      // OpenFreeMap's current integration terms require an adult service integrator.
+      // The public map loader is intentionally inactive in this repository by default.
+      window.RUSSIA_OPENFREEMAP_ADULT_APPROVAL = false;
+    })();
+  </script>
 
-<!-- Load order matters. Each file is one module of the game. -->
-<script src="js/data.js"></script>     <!-- shared helpers + all game data -->
-<script src="js/art.js"></script>      <!-- drawing: tiles, buildings, people, pets, wildlife -->
-<script src="js/scenes.js"></script>   <!-- playable places across Russia -->
-<script src="js/engine.js"></script>   <!-- world simulation, needs, activities, rendering -->
-<script src="js/travel.js"></script>   <!-- journeys and the world map -->
-<script src="js/ui.js"></script>       <!-- HUD, menus, input, start-up -->
+  <!-- Classic scripts are intentionally loaded in dependency order. No build step. -->
+  <script src="css/js/data.js"></script>
+  <script src="js/art.js"></script>
+  <script src="js/art2.js"></script>
+  <script src="js/scenes.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/travel.js"></script>
+  <script src="js/ui.js"></script>
 </body>
 </html>
