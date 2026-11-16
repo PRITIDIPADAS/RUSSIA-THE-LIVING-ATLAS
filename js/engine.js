@@ -111,7 +111,7 @@ var GAME_ENGINE = (function () {
     if(moving){a.x/=len;a.y/=len;var running=keys.shift||touch.run,speed=running?220:125,dx=a.x*speed*dt,dy=a.y*speed*dt;
       var nx=state.x+dx,ny=state.y+dy;if(!solidAt(nx, state.y))state.x=nx;if(!solidAt(state.x,ny))state.y=ny;
       state.dir=Math.abs(a.x)>Math.abs(a.y)?(a.x<0?'left':'right'):(a.y<0?'up':'down');state.anim=running?'run':'walk';
-      var metres=speed*dt*.04;state.stats.distance+=metres;if(running)state.stats.runM+=metres;else if(scene.kind==='trail')state.stats.hikeM+=metres;
+      var metres=speed*dt*.04;state.stats.distance+=metres;if(running)state.stats.runM+=metres;else if(scene.kind==='trail'&&(scene.tiles[Math.floor(state.y/32)]||'')[Math.floor(state.x/32)]==='d')state.stats.hikeM+=metres;
       addNeed('energy',-(running?.12:.035)*dt);addNeed('hunger',-.018*dt);addNeed('thirst',-.026*dt);
     }else state.anim='idle';
     advance(dt);
