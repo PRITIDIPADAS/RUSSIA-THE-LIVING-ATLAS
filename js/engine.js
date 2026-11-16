@@ -3,7 +3,7 @@
 var GAME_ENGINE = (function () {
   var canvas,ctx,last=0,raf=0,keys={},touch={x:0,y:0,run:false},dpr=1;
   var saveKey='russia-life-beyond-save-v1',scene=null,near=null,elapsed=0,toast='';
-  var state=null,camera={x:0,y:0},paused=false;
+  var state=null,camera={x:0,y:0},paused=false,weatherInfo={kind:'clear',temp:null,wind:.15,cloud:.2,source:'climate'},weatherAt=0,weatherPending=false;
   var names=['energy','hunger','thirst','hygiene','bladder','mood','social'];
   function fresh(){
     return {date:'2026-11-16',minutes:480,scene:'msk_flat',x:13*32,y:11*32,dir:'down',anim:'idle',money:4500,
@@ -17,9 +17,11 @@ var GAME_ENGINE = (function () {
   function setScene(id,x,y){
     var s=SCENE_CATALOG.build(id);if(!s){notify('That area is not available yet.');return false;}
     scene=s;state.scene=id;state.x=x===undefined?13*32:x;state.y=y===undefined?12*32:y;
-    state.visited[s.placeId]=true;near=null;save();return true;
+    state.visited[s.placeId]=true;near=null;refreshWeather();save();return true;
   }
   function notify(s){toast=String(s);if(window.GAME_UI)GAME_UI.toast(toast);}
+  function fallbackWeather(){var p=SCENE_CATALOG.places[scene.placeId]||{},m=new Date(state.date).getMonth(),temp=p.clim?p.clim[m]:0,seed=String(state.date+scene.placeId).split('').reduce(function(a,ch){return(a*31+ch.charCodeAt(0))>>>0;},7)%100,k= temp<0?(seed<40?'snow':seed<58?'cloudy':seed<65?'fog':'clear'):(seed<16?'rain':seed<34?'cloudy':seed<39?'fog':seed<43?'wind':'clear');weatherInfo={kind:k,temp:temp,wind:k==='storm'?.85:k==='wind'?.75:.18,cloud:k==='clear'?.12:.55,source:'monthly climate fallback'};}
+  function refreshWeather(){if(!scene||!state)return;fallbackWeather();if(!state.settings.weather||typeof fetch!=='function'||(typeof navigator!=='undefined'&&!navigator.onLine))return;if(weatherPending||Date.now()-weatherAt<600000)return;var p=SCENE_CATALOG.places[scene.placeId];if(!p)return;weatherPending=true;var url='https://api.open-meteo.com/v1/forecast?latitude='+p.lat+'&longitude='+p.lng+'&current=temperature_2m,precipitation,weather_code,cloud_cover,wind_speed_10m&timezone=auto';fetch(url).then(function(r){if(!r.ok)throw new Error('Weather unavailable');return r.json();}).then(function(data){var v=data.current;if(!v)return;var code=+v.weather_code,k=code===0?'clear':code<=3?'cloudy':code===45||code===48?'fog':code>=95?'storm':code>=71?'snow':code>=51?'rain':(v.wind_speed_10m||0)>35?'wind':'clear';weatherInfo={kind:k,temp:+v.temperature_2m,wind:clamp((+v.wind_speed_10m||0)/65,0,1),cloud:clamp((+v.cloud_cover||0)/100,0,1),source:'Open-Meteo'};weatherAt=Date.now();}).catch(function(){weatherAt=Date.now();}).finally(function(){weatherPending=false;});}
   function addNeed(k,v){state.needs[k]=clamp((state.needs[k]||0)+v,0,100);}
   function enterNew(){state=fresh();setScene('msk_flat',13*32,11*32);notify('Доброе утро! Your Moscow morning begins.');}
   function start(){paused=true;canvas=document.getElementById('game');ctx=canvas.getContext('2d');resize();window.addEventListener('resize',resize);
@@ -99,7 +101,7 @@ var GAME_ENGINE = (function () {
     var colors={'.':'#77945b',',':'#9bab68','=':'#55575b',':':'#c5bda9','#':'#696765','f':'#a88058','m':'#b7b0a5','t':'#a6aaa2','W':'#b1a58e','~':'#3f778a','w':'#5799a4','d':'#a9916e','n':'#92917b','p':'#c7b9a1'};
     ctx.fillStyle=colors[c]||'#7b9660';ctx.fillRect(x*32,y*32,32,32);ctx.strokeStyle='rgba(29,34,48,.07)';ctx.strokeRect(x*32+.5,y*32+.5,31,31);
   }
-  function env(){var h=state.minutes/60,month=new Date(state.date).getMonth();return {season:typeof seasonOf==='function'?seasonOf(month):'autumn',snow:month===10||month<=1?.55:0,day:h>6&&h<19?1:.25,dusk:h>17&&h<20?.4:0,hour:h,wind:.2,cloud:.3,kind:'clear',biome:scene.biome,indoor:scene.inside,frozen:scene.placeId==='bkl'&&[0,1,2,3].indexOf(month)>=0};}
+  function env(){var h=state.minutes/60,month=new Date(state.date).getMonth(),snow=weatherInfo.temp===null?(month===10||month<=1?.55:0):clamp((2-weatherInfo.temp)/13,0,1);return {season:typeof seasonOf==='function'?seasonOf(month):'autumn',snow:snow,day:h>6&&h<19?1:.25,dusk:h>17&&h<20?.4:0,hour:h,wind:weatherInfo.wind,cloud:weatherInfo.cloud,kind:weatherInfo.kind,temp:weatherInfo.temp,biome:scene.biome,indoor:scene.inside,frozen:scene.placeId==='bkl'&&[0,1,2,3].indexOf(month)>=0};}
   function fallbackActor(x,y,kind){ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.ellipse(x,y+8,9,4,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=kind==='npc'?'#a65a42':'#34546c';ctx.fillRect(x-6,y-13,12,18);ctx.fillStyle='#e2b48f';ctx.beginPath();ctx.arc(x,y-17,6,0,Math.PI*2);ctx.fill();}
   function draw(){
     var w=canvas.width/dpr,h=canvas.height/dpr;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
@@ -122,5 +124,5 @@ var GAME_ENGINE = (function () {
   function getState(){return state;}
   function getScene(){return scene;}
   function getNear(){return near;}
-  return {start:start,newGame:enterNew,save:save,load:load,use:use,notify:notify,setTouch:setTouch,pause:togglePause,getState:getState,getScene:getScene,getNear:getNear,advance:advance,consume:consume,petAction:petAction,addNeed:addNeed,scene:setScene,update:update,discover:discover};
+  return {start:start,newGame:enterNew,save:save,load:load,use:use,notify:notify,setTouch:setTouch,pause:togglePause,getState:getState,getScene:getScene,getNear:getNear,advance:advance,consume:consume,petAction:petAction,addNeed:addNeed,scene:setScene,update:update,discover:discover,refreshWeather:refreshWeather,getWeather:function(){return weatherInfo;}};
 })();
