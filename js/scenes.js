@@ -30,7 +30,7 @@ var SCENE_CATALOG = (function () {
     ['kam_tundra','kam','Kamchatka tundra trail','trail','tundra'],['kam_pier','kam','Petropavlovsk pier','coast','volcanic']
   ];
   var links = {
-    msk_flat:['msk_street','South door'],msk_street:['msk_flat','msk_shop','msk_park','msk_square','msk_station','msk_hotel'],
+    msk_flat:['msk_street'],msk_street:['msk_flat','msk_shop','msk_park','msk_square','msk_station','msk_hotel'],
     msk_shop:['msk_street'],msk_hotel:['msk_street'],msk_park:['msk_street'],msk_square:['msk_street','msk_museum'],
     msk_museum:['msk_square'],msk_station:['msk_street'],
     spb_embankment:['spb_hermitage','spb_strelka'],spb_hermitage:['spb_embankment'],spb_strelka:['spb_embankment'],
