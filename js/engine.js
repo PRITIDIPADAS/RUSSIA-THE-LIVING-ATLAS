@@ -3,6 +3,7 @@
 var GAME_ENGINE = (function () {
   var canvas,ctx,last=0,raf=0,keys={},touch={x:0,y:0,run:false},dpr=1;
   var saveKey='russia-life-beyond-save-v1',scene=null,near=null,elapsed=0,toast='';
+  function clamp(v,a,b){return v<a?a:v>b?b:v;}
   var state=null,camera={x:0,y:0},paused=false,weatherInfo={kind:'clear',temp:null,wind:.15,cloud:.2,source:'climate'},weatherAt=0,weatherPending=false;
   var names=['energy','hunger','thirst','hygiene','bladder','mood','social'];
   function fresh(){
