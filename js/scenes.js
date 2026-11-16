@@ -30,12 +30,12 @@ var SCENE_CATALOG = (function () {
     ['kam_tundra','kam','Kamchatka tundra trail','trail','tundra'],['kam_pier','kam','Petropavlovsk pier','coast','volcanic']
   ];
   var links = {
-    msk_flat:['msk_street','South door'],msk_street:['msk_flat','msk_shop','msk_park','msk_square','msk_station'],
+    msk_flat:['msk_street','South door'],msk_street:['msk_flat','msk_shop','msk_park','msk_square','msk_station','msk_hotel'],
     msk_shop:['msk_street'],msk_hotel:['msk_street'],msk_park:['msk_street'],msk_square:['msk_street','msk_museum'],
     msk_museum:['msk_square'],msk_station:['msk_street'],
     spb_embankment:['spb_hermitage','spb_strelka'],spb_hermitage:['spb_embankment'],spb_strelka:['spb_embankment'],
-    kzn_kremlin:['kzn_embankment','kzn_shop','kzn_station'],kzn_embankment:['kzn_kremlin'],kzn_shop:['kzn_kremlin'],kzn_hotel:['kzn_kremlin'],kzn_station:['kzn_kremlin'],
-    bkl_village:['bkl_museum','bkl_beach','bkl_trail'],bkl_museum:['bkl_village'],bkl_beach:['bkl_village','bkl_pier'],bkl_trail:['bkl_village','bkl_camp'],bkl_camp:['bkl_trail'],
+    kzn_kremlin:['kzn_embankment','kzn_shop','kzn_station','kzn_hotel'],kzn_embankment:['kzn_kremlin'],kzn_shop:['kzn_kremlin'],kzn_hotel:['kzn_kremlin'],kzn_station:['kzn_kremlin'],
+    bkl_village:['bkl_museum','bkl_beach','bkl_trail'],bkl_museum:['bkl_village'],bkl_beach:['bkl_village'],bkl_trail:['bkl_village','bkl_camp'],bkl_camp:['bkl_trail'],
     elb_village:['elb_cable','elb_trail','elb_shop'],elb_cable:['elb_village'],elb_trail:['elb_village','elb_hut'],elb_hut:['elb_trail'],elb_shop:['elb_village'],
     soc_promenade:['soc_beach','soc_pier','soc_station'],soc_beach:['soc_promenade'],soc_pier:['soc_promenade'],soc_station:['soc_promenade'],
     kam_bay:['kam_beach','kam_pier','kam_tundra'],kam_beach:['kam_bay'],kam_pier:['kam_bay'],kam_tundra:['kam_bay']
@@ -74,7 +74,7 @@ var SCENE_CATALOG = (function () {
     if(inside){
       objects.push(obj('bld',3,2,{w:21,h:14,style:'stucco',floors:1,lit:100}));
       if(kind==='home'){
-        objects.push(obj('bed',4,4,{action:'sleep',prompt:'E — Sleep in your bed'}),obj('fridge',20,4,{action:'fridge',prompt:'E — Open fridge'}),obj('stove',19,10,{action:'cook',prompt:'E — Cook'}),obj('shower',4,12,{action:'shower',prompt:'E — Shower'}),obj('toilet',8,12,{action:'restroom',prompt:'E — Use restroom'}),obj('wardrobe',13,3,{action:'wardrobe',prompt:'E — Change clothes'}),obj('table',10,8),obj('chair',11,10));
+        objects.push(obj('bed',4,4,{action:'sleep',prompt:'E — Sleep in your bed'}),obj('fridge',20,4,{action:'fridge',prompt:'E — Open fridge'}),obj('stove',19,10,{action:'cook',prompt:'E — Cook'}),obj('shower',4,12,{action:'shower',prompt:'E — Shower'}),obj('toilet',8,12,{action:'restroom',prompt:'E — Use restroom'}),obj('wardrobe',13,3,{action:'wardrobe',prompt:'E — Change clothes'}),obj('table',10,8,{action:'eat',prompt:'E — Eat at the table'}),obj('chair',11,10));
       } else if(kind==='shop'){
         objects.push(obj('table',6,5,{w:3,action:'shop',prompt:'E — Browse groceries'}),obj('fridge',18,4,{action:'shop',prompt:'E — Browse groceries'}),obj('npc',12,12,{name:'Shopkeeper',dir:'down',color:'#8b5945',route:0,phase:2}));
       } else if(kind==='station'){
@@ -96,6 +96,12 @@ var SCENE_CATALOG = (function () {
       if(kind==='trail'||kind==='camp')objects.push(obj('tree',4,5,{k:biome==='taiga'?'cedar':biome==='tundra'?'ermans':'pine',s:1.15}),obj('tree',8,12,{k:'birch'}),obj('tree',20,5,{k:'spruce'}));
       if(kind==='camp')objects.push(obj('tent',12,7,{action:'sleep',prompt:'E — Sleep in your tent'}),obj('campfire',16,11,{action:'rest',prompt:'E — Rest by the campfire'}));
       if(kind==='park'||kind==='street'||kind==='village')objects.push(obj('tree',5,5,{k:'birch'}),obj('tree',19,5,{k:pid==='soc'?'palm':'oak'}),obj('bench',10,12,{action:'rest',prompt:'E — Sit on the bench'}));
+      if(pid==='msk'&&kind==='park')objects.push(obj('squirrel',18,7,{species:'squirrel'}));
+      if(pid==='bkl'&&kind==='beach')objects.push(obj('seal',23,6,{species:'nerpa'}),obj('gull',20,5,{species:'mgull'}));
+      if(pid==='bkl'&&kind==='trail')objects.push(obj('squirrel',9,6,{species:'squirrel'}),obj('crow',20,8,{species:'crow'}));
+      if(pid==='elb'&&kind==='trail')objects.push(obj('tur',21,5,{species:'tur'}));
+      if(pid==='kam'&&kind==='tundra')objects.push(obj('bear',23,4,{species:'bear'}));
+      if(pid==='soc'&&kind==='beach')objects.push(obj('dolphin',23,6,{species:'dolphin'}));
       if(kind==='beach')interact.push({x:18,y:10,action:'swim',prompt:'E — Swim in designated water'});
       if(kind==='trail')interact.push({x:14,y:9,action:'hike',prompt:'E — Hike the marked trail'});
       if(kind==='park')interact.push({x:17,y:12,action:'adopt',prompt:'E — Visit the animal shelter'});
