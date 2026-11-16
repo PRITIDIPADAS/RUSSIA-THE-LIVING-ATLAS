@@ -119,7 +119,7 @@ var GAME_ENGINE = (function () {
     if(near){var label=near.prompt||('E — '+(near.label||near.action||'Interact'));if(window.GAME_UI)GAME_UI.prompt(label);}
     else if(window.GAME_UI)GAME_UI.prompt('');
   }
-  function loop(now){var dt=Math.min(.05,(now-last)/1000||0);last=now;elapsed+=dt*1000;if(!paused){update(dt);if(Math.floor(now/3000)!==Math.floor((now-dt*1000)/3000))save();}draw();raf=requestAnimationFrame(loop);}
+  function loop(now){var dt=Math.min(.05,(now-last)/1000||0);last=now;elapsed+=dt*1000;if(!paused){update(dt);if(Math.floor(now/3000)!==Math.floor((now-dt*1000)/3000))save();}if(!paused||!window.GAME_TRAVEL||!GAME_TRAVEL.getJourney())draw();raf=requestAnimationFrame(loop);}
   function setTouch(x,y,run){touch={x:x,y:y,run:!!run};}
   function togglePause(v){paused=v;}
   function getState(){return state;}
