@@ -22,7 +22,7 @@ var GAME_ENGINE = (function () {
   function notify(s){toast=String(s);if(window.GAME_UI)GAME_UI.toast(toast);}
   function addNeed(k,v){state.needs[k]=clamp((state.needs[k]||0)+v,0,100);}
   function enterNew(){state=fresh();setScene('msk_flat',13*32,11*32);notify('Доброе утро! Your Moscow morning begins.');}
-  function start(){canvas=document.getElementById('game');ctx=canvas.getContext('2d');resize();window.addEventListener('resize',resize);
+  function start(){paused=true;canvas=document.getElementById('game');ctx=canvas.getContext('2d');resize();window.addEventListener('resize',resize);
     window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);
     var s=load();if(s){state=s;setScene(s.scene,s.x,s.y);state=Object.assign(fresh(),s);setScene(state.scene,state.x,state.y);}
     else enterNew();
@@ -36,7 +36,7 @@ var GAME_ENGINE = (function () {
   function solidAt(px,py){
     var tx=Math.floor(px/32),ty=Math.floor(py/32),row=scene.tiles[ty]||'',c=row[tx]||'W';
     if('W~r'.indexOf(c)>=0)return true;
-    for(var i=0;i<scene.objects.length;i++){var o=scene.objects[i];if(o.t==='door'||o.action===undefined&&o.t!=='bld'&&o.t!=='tree'&&o.t!=='bench'&&o.t!=='bed')continue;
+    for(var i=0;i<scene.objects.length;i++){var o=scene.objects[i];if(o.t==='door'||o.action===undefined&&o.t!=='bld'&&o.t!=='tree'&&o.t!=='bench'&&o.t!=='bed'&&o.t!=='tree')continue;
       if(o.t==='bld'||o.t==='tree'||o.t==='fridge'||o.t==='stove'||o.t==='wardrobe'||o.t==='sofa'||o.t==='table'||o.t==='bench'||o.t==='bed'){
         var w=(o.w||1)*32,h=(o.h||1)*32;if(px>o.x*32&&px<(o.x*32+w)&&py>o.y*32&&py<o.y*32+h)return true;
       }
@@ -44,7 +44,7 @@ var GAME_ENGINE = (function () {
   }
   function nearest(){
     var best=null,bd=58;
-    (scene.interact||[]).concat(scene.objects.filter(function(o){return o.action||o.doorTo;})).forEach(function(o){
+    (scene.interact||[]).concat(scene.objects.filter(function(o){return o.action||o.doorTo||o.t==='npc';})).forEach(function(o){
       var d=Math.hypot((o.x+.5)*32-state.x,(o.y+.5)*32-state.y);if(d<bd){bd=d;best=o;}
     });return best;
   }
@@ -67,17 +67,20 @@ var GAME_ENGINE = (function () {
     else if(a==='adopt'){if(!state.pet){state.pet={kind:'dog',name:'Laika',care:85};notify('Laika joined your travels.');}else notify('Your pet is already with you.');}
     else if(a==='feed'){if(state.pet&&state.inventory.petfood){state.inventory.petfood--;state.pet.care=100;state.stats.petFeeds++;notify('Your pet enjoyed its food.');}else notify('You need pet food.');}
     else if(a==='play'){if(state.pet){state.pet.care=clamp(state.pet.care+5,0,100);state.stats.petPlays++;addNeed('mood',8);notify('A happy moment with your pet.');}}
-    else if(a==='swim'){var tile=scene.tiles[Math.floor(state.y/32)]||'';if(tile[Math.floor(state.x/32)]!=='w')notify('Swimming is allowed only in the marked swimming area.');else if(state.placeId==='bkl'&&[0,1,2,3].indexOf(new Date(state.date).getMonth())>=0)notify('The lake is frozen in winter. Swimming is closed.');else{advance(10);addNeed('hygiene',-3);addNeed('energy',-4);state.stats.swimM+=10;notify('You enjoyed a short swim in the designated area.');}}
+    else if(a==='swim'){var tile=scene.tiles[Math.floor(state.y/32)]||'';if(tile[Math.floor(state.x/32)]!=='w')notify('Swimming is allowed only in the marked swimming area.');else if(scene.placeId==='bkl'&&[0,1,2,3].indexOf(new Date(state.date).getMonth())>=0)notify('The lake is frozen in winter. Swimming is closed.');else{advance(10);addNeed('hygiene',-3);addNeed('energy',-4);state.stats.swimM+=10;notify('You enjoyed a short swim in the designated area.');}}
     else if(a==='hike'){if((scene.tiles[Math.floor(state.y/32)]||'')[Math.floor(state.x/32)]!=='d')notify('Stay on the marked trail to hike.');else{state.stats.hikeM+=120;addNeed('energy',-5);advance(15);notify('You hiked along the marked trail.');}}
     else if(a==='work'){state.money+=500;advance(120);addNeed('energy',-12);notify('You completed a short shift and earned ₽500.');}
     else if(a==='fish'){notify('You watched the water and noted the local birdlife.');}
     else if(a==='info'){if(window.GAME_UI)GAME_UI.openMap();}
     else notify('You look around. The place is peaceful.');
-    save();discover();
+    save();discover();checkQuests();
   }
   function consume(k){if((state.inventory[k]||0)<1){notify('You do not have '+k+'. Visit a shop.');return;}state.inventory[k]--;if(k==='water'){addNeed('thirst',38);state.stats.drinks++;}else{addNeed('hunger',24);state.stats.meals++;}advance(8);notify('You enjoyed '+k+'.');}
   function advance(minutes){state.minutes+=minutes;state.date=new Date(new Date(state.date+'T00:00:00Z').getTime()+Math.floor(state.minutes/1440)*86400000).toISOString().slice(0,10);state.minutes%=1440;}
   function discover(){var ds=typeof DISC!=='undefined'?DISC:{},p=SCENE_CATALOG.places[scene.placeId];Object.keys(ds).forEach(function(k){var d=ds[k],dist=Math.hypot((d.lat-p.lat)*111,(d.lng-p.lng)*65);if(dist<(d.r||10)&&!state.disc[k]){state.disc[k]=true;notify('DISCOVERY UNLOCKED — '+d.name);if(window.GAME_UI)GAME_UI.discovery(k);}});}
+  function spotWildlife(){if(typeof SPECIES==='undefined')return;var map={squirrel:'squirrel',crow:'crow',gull:'mgull',seal:'nerpa',deer:'roe',bear:'bear',tur:'tur',dolphin:'dolphin'};(scene.objects||[]).forEach(function(o){var k=map[o.t]||o.species;if(!k||!SPECIES[k]||state.species[k])return;var d=Math.hypot((o.x+.5)*32-state.x,(o.y+.5)*32-state.y);if(d<88){state.species[k]=true;notify('Field journal: '+SPECIES[k].name+' ('+SPECIES[k].sci+').');}});}
+  function checkQuests(){if(typeof QUESTS==='undefined')return;QUESTS.forEach(function(q){if(state.quests[q.id])return;var done=q.steps.every(function(step){try{return !!step[1](state);}catch(e){return false;}});if(done){state.quests[q.id]=true;state.money+=q.r;notify('MISSION COMPLETE — '+q.t+' · ₽'+q.r);}});}
+  function petAction(action){if(!state.pet){notify('Adopt a pet first.');return;}if(action==='feed'){if(!state.inventory.petfood){notify('Buy pet food at a shop.');return;}state.inventory.petfood--;state.pet.care=100;state.stats.petFeeds++;notify(state.pet.name+' enjoyed the food.');}else if(action==='play'){state.pet.care=clamp(state.pet.care+8,0,100);state.stats.petPlays++;addNeed('mood',8);notify('You played with '+state.pet.name+'.');}save();checkQuests();}
   function update(dt){
     var a=axis(),len=Math.hypot(a.x,a.y),moving=len>.08;
     if(moving){a.x/=len;a.y/=len;var running=keys.shift||touch.run,speed=running?220:125,dx=a.x*speed*dt,dy=a.y*speed*dt;
@@ -89,7 +92,7 @@ var GAME_ENGINE = (function () {
     state.minutes+=dt;var add=Math.floor(state.minutes/1440);if(add){state.minutes%=1440;state.date=new Date(new Date(state.date+'T00:00:00Z').getTime()+add*86400000).toISOString().slice(0,10);}
     addNeed('hunger',-.004*dt);addNeed('thirst',-.006*dt);addNeed('hygiene',-.002*dt);addNeed('bladder',.003*dt);addNeed('social',-.001*dt);
     if(state.pet){state.pet.care=clamp(state.pet.care-.003*dt,0,100);}
-    near=nearest();discover();
+    near=nearest();discover();spotWildlife();checkQuests();
   }
   function drawTile(x,y,c){
     if(typeof T!=='undefined'&&window.ART&&ART.tile){ART.tile(ctx,c,x,y,env(),function(tx,ty){return (scene.tiles[ty]||'')[tx]||'W';});return;}
@@ -106,7 +109,7 @@ var GAME_ENGINE = (function () {
     var objs=scene.objects.slice().sort(function(a,b){return a.y-b.y;});
     objs.forEach(function(o){if(o.t==='door')return;if(window.ART&&typeof T!=='undefined'&&ART.DEF&&ART.DEF[o.t])ART.draw(ctx,o,env(),elapsed);else if(o.t==='npc'||o.t==='person')fallbackActor((o.x+.5)*32,(o.y+.65)*32,'npc');else{ctx.fillStyle=o.t==='tree'?'#42613d':o.t==='bed'?'#9a7657':'#80664c';ctx.fillRect(o.x*32+4,o.y*32+5,(o.w||1)*32-8,(o.h||1)*32-10);}});
     if(window.ART&&typeof T!=='undefined'&&ART.DEF&&ART.DEF.person)ART.draw(ctx,{t:'person',x:state.x/32-.5,y:state.y/32-.82,dir:state.dir,anim:state.anim,look:(typeof OUTFITS!=='undefined'&&OUTFITS[state.outfit])?OUTFITS[state.outfit].look:{top:'#34546c',legs:'#2a2f3a'}},env(),elapsed);else fallbackActor(state.x,state.y,'player');
-    if(state.pet&&window.ART&&ART.DEF&&ART.DEF[state.pet.kind])ART.draw(ctx,{t:state.pet.kind,x:state.x/32-1.1,y:state.y/32+.15,color:'#b07a43',kind:state.pet.kind},env(),elapsed);
+    if(state.pet&&window.ART2)ART2.pet(ctx,state.x-34+Math.sin(elapsed/400)*5,state.y+11+Math.cos(elapsed/550)*3,{kind:state.pet.kind,color:state.pet.color},env(),elapsed);
     ctx.restore();
     if(window.ART2)ART2.lighting(ctx,0,0,w,h,env(),elapsed);
     if(window.ART2)ART2.weather(ctx,0,0,w,h,env(),elapsed);
@@ -119,5 +122,5 @@ var GAME_ENGINE = (function () {
   function getState(){return state;}
   function getScene(){return scene;}
   function getNear(){return near;}
-  return {start:start,newGame:enterNew,save:save,load:load,use:use,notify:notify,setTouch:setTouch,pause:togglePause,getState:getState,getScene:getScene,getNear:getNear,advance:advance,consume:consume,addNeed:addNeed,scene:setScene,update:update,discover:discover};
+  return {start:start,newGame:enterNew,save:save,load:load,use:use,notify:notify,setTouch:setTouch,pause:togglePause,getState:getState,getScene:getScene,getNear:getNear,advance:advance,consume:consume,petAction:petAction,addNeed:addNeed,scene:setScene,update:update,discover:discover};
 })();
