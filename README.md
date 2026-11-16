@@ -90,7 +90,16 @@ Manual gameplay checks to perform in the published game:
 9. Visit Baikal and Sochi. Confirm only their designated beach tiles are swimmable; Kamchatka's black-sand beach is not marked for swimming.
 10. Close and reopen the page, select Continue, and confirm the save is restored.
 
-**Testing honesty:** JavaScript syntax, scene structure and repository file integrity are checked during development. A full real-device browser playthrough is not claimed unless it has actually been performed. The checklist above is for manual verification in the published browser.
+**Automated checks completed in this development pass (16 November 2026):**
+
+- JavaScript parser checks passed for `scenes.js`, `engine.js`, `travel.js`, `ui.js`, and the inline startup script.
+- All 34 scene records have valid 27 × 19 tile grids and all scene links resolve.
+- The seven playable place IDs are present.
+- The two designated beach areas have swim tiles; Kamchatka's black-sand beach has none.
+- The procedural `ART` and `ART2` registries load in a simulated browser environment.
+- A mocked-browser engine check passed for start-at-Moscow 08:00, keyboard movement, joystick plus Run, bed sleep, shower, eating, pet adoption and feeding, Kremlin discovery, local-time conversion to Baikal, and localStorage save/Continue restoration.
+
+**Testing honesty:** These are static, scene-structure and mocked-browser runtime checks. I could not run a full real Chrome session against the published GitHub Pages site or test a physical phone in this development environment. The manual checklist above remains necessary before calling the game fully playtested.
 
 ## Known limitations
 
