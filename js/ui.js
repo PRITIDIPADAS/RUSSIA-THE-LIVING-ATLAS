@@ -37,7 +37,7 @@ var GAME_UI = (function () {
     if(el('hud'))el('hud').classList.remove('hidden');
     el('hRegion').textContent=sc.region;el('hCity').textContent=sc.placeName;el('hScene').textContent=sc.name;
     var h=Math.floor(s.minutes/60),m=Math.floor(s.minutes%60);el('hTime').textContent=s.date+' · '+String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
-    var wx=GAME_ENGINE.getWeather?GAME_ENGINE.getWeather():{kind:'clear',temp:null,source:'climate'};el('hWx').textContent=sc.inside?'Indoors':sc.biome+' · '+wx.kind+(wx.temp===null?'':' · '+Math.round(wx.temp)+'°C')+(wx.source==='Open-Meteo'?' · Open-Meteo':' · local climate');
+    var wx=GAME_ENGINE.getWeather?GAME_ENGINE.getWeather():{kind:'clear',temp:null,source:'climate'};if(sc.inside)el('hWx').textContent='Indoors';else if(wx.source==='Open-Meteo')el('hWx').innerHTML=sc.biome+' · '+safe(wx.kind)+(wx.temp===null?'':' · '+Math.round(wx.temp)+'°C')+' · <a href="https://open-meteo.com/" target="_blank" rel="noopener" style="color:var(--blue)">Weather data by Open-Meteo.com</a>';else el('hWx').textContent=sc.biome+' · '+wx.kind+(wx.temp===null?'':' · '+Math.round(wx.temp)+'°C')+' · local climate';
     el('money').textContent='₽'+Math.round(s.money).toLocaleString('en-US');
     el('needs').innerHTML=['energy','hunger','thirst','hygiene','bladder','mood','social'].map(function(k){var v=Math.round(s.needs[k]),low=v<25?' low':v<50?' mid':'';return '<div class="need'+low+'">'+k+' '+v+'<div class="bar"><i style="width:'+v+'%"></i></div></div>';}).join('');
     var status=[];if(s.pet)status.push('Pet: '+s.pet.name);if(Object.keys(s.disc).length)status.push('Discoveries: '+Object.keys(s.disc).length);
