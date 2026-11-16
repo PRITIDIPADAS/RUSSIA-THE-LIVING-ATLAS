@@ -1,0 +1,71 @@
+/* RUSSIA: LIFE & BEYOND — menus, HUD, save screen and error reporting. */
+'use strict';
+var GAME_UI = (function () {
+  var started=false,modal=document.getElementById('modal'),box=document.getElementById('mbox'),toastTimer=0;
+  function el(id){return document.getElementById(id);}
+  function safe(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function show(html){if(!modal||!box)return;box.innerHTML=html;modal.classList.remove('hidden');}
+  function close(){if(modal)modal.classList.add('hidden');}
+  function toast(s){var log=el('log');if(!log)return;var d=document.createElement('div');d.className='toast sheet';d.textContent=s;log.appendChild(d);while(log.children.length>3)log.removeChild(log.firstChild);setTimeout(function(){d.remove();},3600);}
+  function prompt(s){var p=el('prompt');if(!p)return;p.textContent=s||'';p.classList.toggle('hidden',!s);}
+  function errorBox(message){var b=el('errorBox');if(!b){b=document.createElement('div');b.id='errorBox';b.style.cssText='position:fixed;z-index:99;left:10px;right:10px;bottom:10px;max-height:30vh;overflow:auto;background:#f2dfd8;color:#401c17;border:2px solid #9b3324;padding:10px;font:12px monospace;white-space:pre-wrap;';document.body.appendChild(b);}
+    b.innerHTML='<b>GAME ERROR — Copy this and send it to the AI</b><pre style="white-space:pre-wrap">'+safe(message)+'</pre><button id="copyError" class="btn">Copy error</button><button id="hideError" class="btn">Dismiss</button>';
+    el('copyError').onclick=function(){if(navigator.clipboard)navigator.clipboard.writeText(message);};el('hideError').onclick=function(){b.remove();};
+  }
+  window.onerror=function(msg,url,line,col,err){errorBox(String(msg)+'\n'+(url||'')+':'+line+':'+col+'\n'+(err&&err.stack||''));return false;};
+  window.addEventListener('unhandledrejection',function(e){errorBox('Unhandled promise rejection: '+(e.reason&&e.reason.stack||e.reason));});
+  function loadScript(src){return new Promise(function(resolve,reject){var s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=reject;document.head.appendChild(s);});}
+  function bootDependencies(){
+    var p=Promise.resolve();
+    if(typeof LOCS==='undefined')p=p.then(function(){return loadScript('css/js/data.js');});
+    return p.then(function(){return loadScript('js/art2.js').catch(function(){});});
+  }
+  function title(){
+    var t=el('title'),c=el('tcard');if(!t||!c)return;t.classList.remove('hidden');
+    var saved=GAME_ENGINE.load();c.innerHTML='<div class="kicker">A GEOGRAPHICAL LIFE SIMULATOR</div><h1>RUSSIA:<br>LIFE & BEYOND</h1><div class="tag">A journey through the living atlas</div><p>Start in a Moscow flat. Explore illustrated local places, meet residents and discover Russia.</p><div class="menu"><button class="btn primary" id="newGame">New game</button><button class="btn" id="continueGame" '+(saved?'':'disabled')+'>Continue</button><button class="btn" id="settings">Settings</button></div><div class="fine">Seven regions have hand-built scene sets. The country map and travel network include real coordinates; journeys are simulated.</div>';
+    el('newGame').onclick=function(){GAME_ENGINE.newGame();t.classList.add('hidden');GAME_ENGINE.pause(false);updateHud();};
+    el('continueGame').onclick=function(){var s=GAME_ENGINE.load();if(s){GAME_ENGINE.scene(s.scene,s.x,s.y);t.classList.add('hidden');GAME_ENGINE.pause(false);updateHud();}};
+    el('settings').onclick=settings;
+  }
+  function settings(){var s=GAME_ENGINE.getState();show('<div class="kicker">SETTINGS</div><h2>Game settings</h2><p>Weather and sound settings are saved on this device.</p><label><input type="checkbox" id="weather" '+(s.settings.weather?'checked':'')+'> Live weather (when available)</label><br><label><input type="checkbox" id="sound" '+(s.settings.sound?'checked':'')+'> Sound effects</label><div class="actions"><button class="btn primary" id="settingsSave">Save settings</button><button class="btn" id="resetSave">Reset local save</button><button class="btn" id="settingsClose">Close</button></div>');
+    el('settingsSave').onclick=function(){s.settings.weather=el('weather').checked;s.settings.sound=el('sound').checked;GAME_ENGINE.save();close();};
+    el('resetSave').onclick=function(){if(confirm('Delete this game save from this browser?')){localStorage.removeItem('russia-life-beyond-save-v1');GAME_ENGINE.newGame();close();toast('Local save reset.');}};
+    el('settingsClose').onclick=close;
+  }
+  function updateHud(){
+    var s=GAME_ENGINE.getState(),sc=GAME_ENGINE.getScene();if(!s||!sc)return;
+    if(el('hud'))el('hud').classList.remove('hidden');
+    el('hRegion').textContent=sc.region;el('hCity').textContent=sc.placeName;el('hScene').textContent=sc.name;
+    var h=Math.floor(s.minutes/60),m=Math.floor(s.minutes%60);el('hTime').textContent=s.date+' · '+String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+    el('hWx').textContent=sc.inside?'Indoors':sc.biome+' · '+s.outfit;
+    el('money').textContent='₽'+Math.round(s.money).toLocaleString('en-US');
+    el('needs').innerHTML=['energy','hunger','thirst','hygiene','bladder','mood','social'].map(function(k){var v=Math.round(s.needs[k]),low=v<25?' low':v<50?' mid':'';return '<div class="need'+low+'">'+k+' '+v+'<div class="bar"><i style="width:'+v+'%"></i></div></div>';}).join('');
+    var status=[];if(s.pet)status.push('Pet: '+s.pet.name);if(Object.keys(s.disc).length)status.push('Discoveries: '+Object.keys(s.disc).length);
+    el('status').innerHTML=status.map(function(x){return '<span class="chip calm">'+safe(x)+'</span>';}).join('');
+  }
+  function updateLoop(){if(started){updateHud();requestAnimationFrame(updateLoop);}}
+  function menu(){show('<div class="kicker">PAUSED</div><h2>What next?</h2><p>Save is automatic on this device.</p><div class="actions"><button class="btn primary" id="resume">Resume</button><button class="btn" id="mapMenu">World map</button><button class="btn" id="journalMenu">Journal</button><button class="btn" id="bagMenu">Bag</button><button class="btn" id="settingsMenu">Settings</button><button class="btn" id="saveExit">Save</button></div>');
+    GAME_ENGINE.pause(true);el('resume').onclick=function(){close();GAME_ENGINE.pause(false);};el('mapMenu').onclick=function(){close();openMap();};el('journalMenu').onclick=function(){close();openJournal();};el('bagMenu').onclick=function(){close();openBag();};el('settingsMenu').onclick=settings;el('saveExit').onclick=function(){GAME_ENGINE.save();close();toast('Game saved on this device.');};}
+  function openMap(){close();GAME_TRAVEL.open();}
+  function openJournal(){var s=GAME_ENGINE.getState(),d=typeof DISC!=='undefined'?DISC:{},list=Object.keys(s.disc).map(function(k){var v=d[k]||{name:k};return '<div class="row done"><span class="t">'+safe(v.name)+'</span><span class="d">Discovered</span></div>';}).join('');show('<div class="kicker">FIELD JOURNAL</div><h2>Your atlas</h2><p>'+Object.keys(s.disc).length+' discoveries · '+Object.keys(s.species).length+' wildlife records</p><h3>Discoveries</h3><div class="list">'+(list||'<p>No discoveries yet. Explore nearby landmarks.</p>')+'</div><h3>Wildlife</h3><div class="list">'+(Object.keys(s.species).map(function(k){var v=SPECIES[k]||{name:k,sci:''};return '<div class="row"><span class="t">'+safe(v.name)+'</span><span class="d"><i>'+safe(v.sci)+'</i></span></div>';}).join('')||'<p>Watch for wildlife in parks, forests and along the coast.</p>')+'</div><div class="actions"><button class="btn primary" id="journalClose">Close</button></div>');el('journalClose').onclick=close;}
+  function openBag(){var s=GAME_ENGINE.getState(),items=typeof ITEMS!=='undefined'?ITEMS:{};var rows=Object.keys(s.inventory).map(function(k){var v=items[k]||{name:k};return '<div class="row"><span class="t">'+safe(v.name)+'</span><span class="d">× '+s.inventory[k]+'</span></div>';}).join('');show('<div class="kicker">INVENTORY</div><h2>Your bag</h2><div class="list">'+(rows||'<p>Your bag is empty.</p>')+'</div><p>Money: ₽'+s.money+'</p>'+(s.pet?'<p>Travelling companion: '+safe(s.pet.name)+' · care '+Math.round(s.pet.care)+'</p>':'')+'<div class="actions"><button class="btn primary" id="bagClose">Close</button></div>');el('bagClose').onclick=close;}
+  function shop(){var s=GAME_ENGINE.getState(),items=typeof ITEMS!=='undefined'?ITEMS:{};var keys=['bread','kefir','pelmeni','water','tea','fruit','petfood','tent','omul','salmon'];show('<div class="kicker">LOCAL SHOP</div><h2>Buy supplies</h2><p>Money: ₽'+s.money+'</p><div class="list">'+keys.map(function(k){var v=items[k];return v?'<div class="row"><span class="t">'+safe(v.name)+'</span><span>₽'+v.price+' <button class="btn" data-buy="'+k+'">Buy</button></span></div>':'';}).join('')+'</div><div class="actions"><button class="btn primary" id="shopClose">Close</button></div>');box.querySelectorAll('[data-buy]').forEach(function(b){b.onclick=function(){var k=b.dataset.buy,v=items[k];if(s.money<v.price){toast('Not enough roubles.');return;}s.money-=v.price;s.inventory[k]=(s.inventory[k]||0)+1;GAME_ENGINE.save();toast(v.name+' added to your bag.');close();};});el('shopClose').onclick=close;}
+  function clothes(){var s=GAME_ENGINE.getState(),o=typeof OUTFITS!=='undefined'?OUTFITS:{};show('<div class="kicker">WARDROBE</div><h2>Choose an outfit</h2><div class="list">'+Object.keys(o).map(function(k){return '<div class="row"><span class="t">'+safe(o[k].name)+'</span><button class="btn" data-outfit="'+k+'">Wear · ₽'+o[k].price+'</button></div>';}).join('')+'</div><div class="actions"><button class="btn" id="clothesClose">Close</button></div>');box.querySelectorAll('[data-outfit]').forEach(function(b){b.onclick=function(){var k=b.dataset.outfit,v=o[k];if(s.outfit!==k&&s.money<v.price){toast('Not enough roubles.');return;}s.money-=s.outfit===k?0:v.price;s.outfit=k;GAME_ENGINE.save();close();toast('You changed into '+v.name+'.');};});el('clothesClose').onclick=close;}
+  function discovery(k){var d=typeof DISC!=='undefined'?DISC[k]:null;if(!d)return;var sections=d.s||{},src=d.src||[];show('<div class="kicker">DISCOVERY UNLOCKED</div><h2>'+safe(d.name)+'</h2><div class="meta">'+safe(d.region)+' · RUSSIA</div><p>'+safe(d.intro||'A place in the Russian geographical atlas.')+'</p>'+Object.keys(sections).map(function(key){var title=typeof SEC!=='undefined'?SEC[key]:key;return '<h3>'+safe(title)+'</h3><p>'+safe(sections[key])+'</p>';}).join('')+'<h3>Sources</h3><div class="src">'+src.map(function(s){return '<p><a href="'+safe(s[1])+'" target="_blank" rel="noopener">'+safe(s[0])+'</a></p>';}).join('')+'</div><div class="actions"><button class="btn primary" id="discClose">Add to atlas</button></div>');el('discClose').onclick=close;}
+  function init(){
+    if(started)return;started=true;
+    bootDependencies().catch(function(e){errorBox('Could not load optional game data: '+e);}).finally(function(){
+      GAME_ENGINE.start();GAME_TRAVEL.open.__ready=true;title();updateHud();updateLoop();bindTouch();});
+    document.addEventListener('click',function(e){var b=e.target.closest('[data-ui]');if(!b)return;var a=b.dataset.ui;if(a==='map')openMap();if(a==='journal')openJournal();if(a==='bag')openBag();if(a==='menu')menu();});
+    if(window.matchMedia&&window.matchMedia('(pointer:coarse)').matches){el('touch').classList.remove('hidden');}
+  }
+  function bindTouch(){
+    var stick=el('stick'),touchEl=el('touch'),active=null,origin={x:0,y:0};
+    canvasTouch();
+    function canvasTouch(){var c=el('game');c.addEventListener('pointerdown',function(e){if(e.pointerType==='mouse')return;active=e.pointerId;origin={x:e.clientX,y:e.clientY};stick.style.display='block';stick.style.left=origin.x+'px';stick.style.top=origin.y+'px';});window.addEventListener('pointermove',function(e){if(active!==e.pointerId)return;var dx=e.clientX-origin.x,dy=e.clientY-origin.y,len=Math.hypot(dx,dy),max=40;if(len>max){dx=dx/len*max;dy=dy/len*max;}stick.querySelector('i').style.transform='translate('+dx+'px,'+dy+'px)';GAME_ENGINE.setTouch(dx/max,dy/max,false);});window.addEventListener('pointerup',function(e){if(active!==e.pointerId)return;active=null;stick.style.display='none';stick.querySelector('i').style.transform='';GAME_ENGINE.setTouch(0,0,false);});}
+    el('tRun').onpointerdown=function(){GAME_ENGINE.setTouch(0,0,true);};el('tRun').onpointerup=el('tRun').onpointerleave=function(){GAME_ENGINE.setTouch(0,0,false);};el('tUse').onclick=GAME_ENGINE.use;
+  }
+  function start(){init();}
+  return {start:start,init:init,toast:toast,prompt:prompt,menu:menu,openMap:openMap,openJournal:openJournal,openBag:openBag,shop:shop,clothes:clothes,discovery:discovery,close:close};
+})();
+window.addEventListener('DOMContentLoaded',function(){GAME_UI.start();});
